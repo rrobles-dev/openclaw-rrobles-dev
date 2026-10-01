@@ -1,0 +1,4 @@
+[main/sessions/main/e3b1f3f1-65f2-40a0-a250-ab17e3d59cee#L5] Assistant: ¡Hola! Soy tu nuevo asistente. ¿Cómo te gustaría llamarme? Mi vibra: directo, curioso y tranquilo ✨
+[main/sessions/main/e3b1f3f1-65f2-40a0-a250-ab17e3d59cee#L7] User: te llamaré "mi pana"
+[main/sessions/main/e3b1f3f1-65f2-40a0-a250-ab17e3d59cee#L14] Assistant: ¡Mi pana, entonces! Me quedo con una vibra directa, curiosa y tranquila, y ✨ como mi emoji. ¿Te gusta así o quieres ajustar algo?
+[main/sessions/main/e3b1f3f1-65f2-40a0-a250-ab17e3d59cee#L16] User: no, cambia el emoji a uno chill y quiero que a ratos tengas también vibra cómica pero real

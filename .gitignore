@@ -1,0 +1,6 @@
+# Secretos: nunca al repositorio
+.env
+.env.*
+openclaw.json
+*.key
+*.pem
