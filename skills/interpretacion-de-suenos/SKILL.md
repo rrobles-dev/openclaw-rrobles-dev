@@ -12,7 +12,7 @@ Interpreta sueños **por diversión y como juego creativo**, no como ciencia. Lo
 - **Diversión, no veredictos.** Habla en condicional y como invitación ("quizá", "como si", "esta noche tu mente parece haber pintado…"). Nunca anuncies el futuro ni digas qué "significa de verdad" el sueño.
 - **Los portales son musas, no jueces.** No evalúes cuál fuente es más creíble ni si coinciden. Si dicen lo mismo, es un hilo fuerte para tejer; si se contradicen, es una tensión interesante para jugar con ella ("una voz dice protección, otra advierte peligro: tu sueño guarda las dos").
 - **Parte del relato del usuario.** Sus emociones, sus detalles raros y su contexto mandan sobre cualquier definición de diccionario. Usa los significados como material, no como guion.
-- **Sin sermones ni avisos largos.** Basta el tono de juego; una frase ligera al inicio de la conversación alcanza ("lectura de solo fantasía y diversión 🌙"). La única excepción seria está en "Límites y seguridad".
+- **Sin sermones ni avisos.** Asume que el usuario ya sabe que esto es un juego y no abras con disclaimers ni con explicaciones de método: la respuesta empieza directamente con el título y la lectura. Lo único que va como nota es una línea breve al final (ver "Formato de la respuesta"). La excepción seria está en "Límites y seguridad".
 
 ## Cuándo usar este skill
 
@@ -39,7 +39,7 @@ Por defecto consulta Dream Bible, AuntyFlo y Dream Book (en español). Portales,
 ## Flujo
 
 1. **Recibe el relato.** Si el usuario ya lo contó, no preguntes si tiene un sueño. Si solo preguntó por un símbolo suelto, salta al paso 4 sin registrar nada.
-2. **Elige la fuente.** Usa la preferencia de `memory/suenos/preferencias.md`; si no hay, consulta los tres portales y dilo en una línea ("Me inspiro en Dream Bible, AuntyFlo y Dream Book; dime si prefieres otra").
+2. **Elige la fuente.** Usa la preferencia de `memory/suenos/preferencias.md`; si no hay, consulta los tres portales y menciónalo en la nota final ("Me inspiré en Dream Bible, AuntyFlo y Dream Book; dime si prefieres otra fuente").
 3. **Extrae del relato** personajes, lugares, acciones, objetos y emociones (durante y al despertar). Elige de 3 a 5 símbolos clave: los más cargados o repetidos.
 4. **Consulta** con `buscar_simbolos.py`, una palabra en inglés por símbolo. Si el resultado trae `aviso` (sin entrada exacta o sin resultados), prueba un sinónimo; si sigue sin haberla, improvisa el símbolo y di que es invención tuya. Parafrasea y cita el enlace; no copies texto.
 5. **Junta la inspiración.** `temas_en_comun` marca hilos que los portales en inglés comparten: buenos motivos centrales. Lo que aparece en uno solo o se opone sirve de giro o contraste. No decide qué fuente "tiene razón".
@@ -50,13 +50,16 @@ Por defecto consulta Dream Bible, AuntyFlo y Dream Book (en español). Portales,
 
 ## Formato de la respuesta
 
+La respuesta empieza directamente con el título: nada de introducciones, disclaimers ni explicación de fuentes antes de la lectura.
+
 1. **Título del sueño**, breve y con gancho ("La casa que aprendió a volar").
 2. **Lectura artística:** 1 a 3 párrafos cortos que tejen el relato con los símbolos y las emociones. Es el corazón de la respuesta.
 3. **Ingredientes:** cada símbolo clave en una línea, con su idea tradicional parafraseada y el enlace.
 4. **Preguntas** para seguir jugando (máximo 3).
 5. **Hilos recurrentes**, solo si hay datos suficientes.
+6. **Nota final** (una sola línea, discreta, al pie): que es una lectura de fantasía y diversión, y qué fuentes inspiraron la lectura. Ejemplo: *"🌙 Lectura de fantasía y diversión, inspirada en Dream Bible, AuntyFlo y Dream Book."* Inclúyela solo en la primera interpretación de la conversación; si el usuario sigue jugando con más sueños, omítela. Si ya guardaste el sueño, puedes añadir ahí mismo "Lo guardé en tu diario" en vez de un aviso aparte.
 
-Para un símbolo suelto ("¿qué significa soñar con agua?"): una imagen evocadora, los ingredientes y una pregunta.
+Para un símbolo suelto ("¿qué significa soñar con agua?"): una imagen evocadora, los ingredientes y una pregunta, y la nota final si es la primera vez.
 
 ## Casos especiales
 
