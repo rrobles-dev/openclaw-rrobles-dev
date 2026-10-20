@@ -4,3 +4,10 @@
 openclaw.json
 *.key
 *.pem
+
+# Datos personales: registro de sueños (privado)
+memory/suenos/
+
+# Caché de consultas web del skill de sueños
+skills/interpretacion-de-suenos/.cache/
+__pycache__/
