@@ -19,6 +19,7 @@ buscar_simbolos.py --url URL
 ```
 
 - Términos en inglés, una palabra por consulta (recomendación de Dream Bible).
+- Si no hay entrada con el título exacto, añade `aviso` («sin entrada exacta…») para que el agente sepa que son resultados parecidos.
 - Ordena primero la entrada que coincide exactamente con el término y descarta el menú "Dream Themes Menu".
 - Cada resultado trae `simbolo`, `fuente` (para citar), `cache`, `entradas[{titulo, extracto, ver_tambien}]`, y `aviso` o `error` si algo falló.
 - Los extractos están truncados a propósito: parafrasea y cita el enlace, no copies.

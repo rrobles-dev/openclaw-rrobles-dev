@@ -241,6 +241,8 @@ def consultar(portal, term, a):
             ents = [dict(e, extracto=trunc(e["texto"], a.max_chars), _completo=e["texto"]) for e in parser.parse(page)]
             for e in ents: e.pop("texto", None)
         r["entradas"] = ents
+        if ents and not any(e["titulo"].lower() == term.lower() for e in ents):
+            r["aviso"] = "sin entrada exacta; son entradas parecidas (prueba --max-entradas 5 o un término de ver_tambien)"
         if not ents: r["aviso"] = "sin resultados; prueba un sinónimo o una sola palabra"
     except urllib.error.HTTPError as e:
         gone = e.code in (404, 410)
