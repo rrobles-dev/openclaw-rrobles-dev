@@ -11,3 +11,7 @@ memory/suenos/
 # Caché de consultas web del skill de sueños
 skills/interpretacion-de-suenos/.cache/
 __pycache__/
+
+# Historial de noticias (caduca a los 7 días)
+memory/noticias/
+skills/resumen-noticias-chile/.cache/
