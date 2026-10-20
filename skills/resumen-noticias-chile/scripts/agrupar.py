@@ -28,7 +28,10 @@ SEG2SEC = {seg: sec for sec, segs in SECCIONES.items() for seg in segs}
 STOP = set("""de la el en y a los las del que por con un una para se su al lo como mas es sus tras ante sobre entre sin este esta han
 ha fue ser son le les no si o u e ya hay desde hasta hacia segun durante cual cuando donde quien luego esto estos estas ese eso anos
 ano dias dia nuevo nueva nuevos nuevas primer primera dice afirma asegura aseguro senalo anuncio indico explico mientras ademas
-tambien podria puede pueden sera seran hoy ayer manana chile chileno chilena todo todos toda todas otro otra otros otras muy""".split())
+tambien podria puede pueden sera seran hoy ayer manana chile chileno chilena todo todos toda todas otro otra otros otras muy
+anuncia anuncian anuncio medida medidas afectada afectadas afectado afectados inicia inician pide piden apunta apuntan tiene tienen debe
+deben vuelve vuelven queda quedan busca buscan llama llaman revela revelan confirma confirman descarta descartan advierte advierten
+critica critican responde responden presenta presentan entrega entregan aprueba aprueban rechaza rechazan lanza lanzan tras como""".split())
 
 
 def sin_acentos(t):
@@ -41,7 +44,9 @@ def tokens(titulo):
     for w in re.findall(r"[a-z0-9]{4,}", sin_acentos(titulo)):
         if w in STOP:
             continue
-        out.add(w[:-1] if w.endswith("s") and len(w) > 4 else w)
+        w = w[:-1] if w.endswith("s") and len(w) > 4 else w
+        if w not in STOP:  # el singular de una palabra vacía también lo es
+            out.add(w)
     return out
 
 

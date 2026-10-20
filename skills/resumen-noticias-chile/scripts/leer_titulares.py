@@ -42,6 +42,11 @@ def limpiar(t):
     return re.sub(r"\s+", " ", html.unescape(t)).strip()
 
 
+def limpiar_sufijo(titulo, nombre):
+    """Quita el ' - Meganoticias' o ' | CNN Chile' que algunos medios añaden al título."""
+    return re.sub(rf"\s*[-|–]\s*{re.escape(nombre)}\s*$", "", titulo, flags=re.I).strip() or titulo
+
+
 def parse_fecha(s, link=""):
     """Devuelve datetime en UTC, o None si no hay forma de saberlo."""
     s = (s or "").strip()
@@ -99,6 +104,7 @@ def leer_fuente(f, horas=30, refresh=False, ahora=None):
     for a in crudos:
         if not a["titulo"] or not a["link"].startswith("http"):
             continue
+        a["titulo"] = limpiar_sufijo(a["titulo"], f["nombre"])
         d = parse_fecha(a["fecha"], a["link"])
         if d and d < lim:
             continue

@@ -114,18 +114,37 @@ def elegir_enlace(g, fuentes, verif=verificar):
     return None, None
 
 
-def titulo_grupo(g, fuentes):
-    a = min(g["articulos"], key=lambda a: fuentes[a["medio"]]["prioridad"])
-    return a["titulo"]
+def recortar(t, n):
+    """Corta en un límite de palabra y añade puntos suspensivos si hubo recorte."""
+    t = (t or "").strip()
+    return t if len(t) <= n else t[:n].rsplit(" ", 1)[0].rstrip(",;:. ") + "…"
+
+
+def ordenar_centrales(g, fuentes):
+    """Titulares del grupo del más central al menos: comparten más palabras con los demás medios (empate: prioridad)."""
+    freq = {}
+    for a in g["articulos"]:
+        for t in a["toks"]:
+            freq[t] = freq.get(t, 0) + 1
+
+    def pts(a):
+        n = len(a["toks"]) or 1
+        return (-sum(freq[t] for t in a["toks"]) / n ** 0.5, fuentes[a["medio"]]["prioridad"])
+    return sorted(g["articulos"], key=pts)
+
+
+def representante(g, fuentes):
+    return ordenar_centrales(g, fuentes)[0]
 
 
 def item(g, fuentes):
-    desc = next((a["descripcion"] for a in sorted(g["articulos"], key=lambda a: fuentes[a["medio"]]["prioridad"])
-                 if a.get("descripcion")), "")
-    t = titulo_grupo(g, fuentes)
-    otros = [a["titulo"] for a in g["articulos"] if a["titulo"] != t][:2]
-    return {"titulo": t, "medios": len(g["medios"]), "nombres": [fuentes[m]["nombre"] for m in g["medios"]],
-            "seccion": g["seccion"], "descripcion": desc[:220], "otros_titulos": otros,
+    orden = ordenar_centrales(g, fuentes)
+    rep = orden[0]
+    # la descripción solo vale si viene de uno de los 3 titulares más centrales (si no, hablaría de otra cosa)
+    desc = next((a["descripcion"] for a in orden[:3] if a.get("descripcion")), "")
+    otros = [a["titulo"] for a in g["articulos"] if a["titulo"] != rep["titulo"]][:2]
+    return {"titulo": rep["titulo"], "medios": len(g["medios"]), "nombres": [fuentes[m]["nombre"] for m in g["medios"]],
+            "seccion": g["seccion"], "descripcion": recortar(desc, 220), "otros_titulos": otros,
             "repetida_hace_dias": g.get("repetida"), "enlace": None, "enlace_medio": None, "_toks": g["toks"]}
 
 

@@ -50,6 +50,13 @@ assert gs[0]["medios"] == ["cnn", "lt", "mega"] and len(gs) == 3, [(g["medios"],
 assert gs[1]["medios"] == ["cnn", "mega"] and gs[2]["seccion"] == "deportes"
 assert all("opinion" not in a["link"] for g in gs for a in g["articulos"])
 
+# palabras genéricas de noticias no deben unir temas distintos (SII en Chile vs. Macron en Francia)
+sii = "SII anuncia medidas de alivio tributario para propiedades afectadas por catástrofes naturales en 2026"
+mac = "Macron anuncia nuevas medidas a favor de empresas afectadas por violencia callejera en Francia"
+assert not ag.similares(ag.tokens(sii), ag.tokens(mac))
+assert ag.similares(ag.tokens("Marcel pide a las AFP evaluar compensaciones por pérdidas del Fondo E"),
+                    ag.tokens("Mario Marcel apunta contra las AFP por pérdidas del Fondo E y pide evaluar compensación"))
+
 # ---- verificación de enlaces ----
 def pagina(cuerpo): return lambda u: (200, u, cuerpo)
 assert ve.verificar("https://x.cl/a", "medido")["ok"] is False
@@ -73,6 +80,27 @@ assert medio == "Mega"                             # CNN falla la verificación:
 assert ar.elegir_enlace(g, FU, lambda u, ac: {"ok": False}) == (None, None)
 ge = {"seccion": "economia", "articulos": [dict(arts[0], medio="cnn"), dict(arts[1], medio="df", link="https://df.cl/e/a")]}
 assert ar.elegir_enlace(ge, FU, lambda u, ac: {"ok": True})[1] == "DF"   # en economía, DF primero
+
+# titular representativo (el más central) y recorte de descripción
+FR = {"a": {"prioridad": 1}, "b": {"prioridad": 2}, "c": {"prioridad": 3}}
+def art(m, t): return {"medio": m, "titulo": t, "toks": ag.tokens(t), "link": "https://x/" + m, "descripcion": ""}
+gr = {"articulos": [art("a", "Explicativo: qué conviene hacer si quiero pensionarme con la caída del Fondo E"),
+                    art("b", "Fondo E: AFP sufren pérdidas millonarias por swaps"),
+                    art("c", "Pérdidas del Fondo E: AFP y swaps bajo la lupa del regulador")]}
+assert ar.representante(gr, FR)["medio"] in ("b", "c")   # no el explicativo aunque tenga más prioridad
+assert lt.limpiar_sufijo("Encerrona a periodista - Meganoticias", "Meganoticias") == "Encerrona a periodista"
+assert lt.limpiar_sufijo("Meganoticias abre sede", "Meganoticias") == "Meganoticias abre sede"
+assert lt.limpiar_sufijo("Título | CNN Chile", "CNN Chile") == "Título"
+gd = {"articulos": [dict(art("a", "Explicativo: qué conviene hacer si quiero pensionarme con la caída del Fondo E"), descripcion="Texto del explicativo"),
+                    art("b", "Fondo E: AFP sufren pérdidas millonarias por swaps"),
+                    art("c", "Pérdidas del Fondo E: AFP y swaps bajo la lupa del regulador")],
+      "medios": ["a", "b", "c"], "seccion": "economia", "toks": []}
+FA = {k: dict(v, nombre=k, acceso="libre") for k, v in FR.items()}
+it = ar.item(gd, FA)
+assert it["titulo"] != gd["articulos"][0]["titulo"]
+largo = "palabra " * 60
+rc = ar.recortar(largo, 100)
+assert rc.endswith("…") and len(rc) <= 101 and not rc[:-1].endswith("palabr") and ar.recortar("corto", 100) == "corto"
 
 # ---- historial: caducidad a 7 días y detección de repetidas ----
 carpeta = Path(tempfile.mkdtemp())
