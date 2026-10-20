@@ -23,6 +23,13 @@ assert b.coincidencias(["fear of failure and loss", "loss brings fear", "unrelat
 assert b.coincidencias(["snake brings fear and loss", "fear of loss from snake"], excluir=["snake"]) == ["fear", "loss"] or set(b.coincidencias(["snake brings fear and loss", "fear of loss from snake"], excluir=["snake"])) == {"fear", "loss"}
 assert b.AuntyParser.parse('<h2 class="node-title field-wrapper text-center"><span>Snake</span></h2><div>Un <b>texto</b></div>You may also like<p>fuera</p>')[0]["texto"] == "Un texto"
 
+IP = '<main><h1>Soñar con volar</h1><p>Promo Dream Book app gratuita que conecta tus sueños con el tiempo y mucho más texto relleno aquí para pasar el largo mínimo de cien caracteres.</p><h2>Escenarios</h2><h3>Alto</h3>Imagina que te deslizas sin esfuerzo por el cielo, con el viento bajo tus alas. Esta sensación de liberación indica deseo de libertad. <a href="/x">agua</a> mientras vuelas.<p>corto</p><h2>Significados de sueños relacionados</h2><p>Esto no debe aparecer porque ya terminó el contenido útil del artículo, aunque sea largo de sobra para pasar el filtro.</p></main>'
+ip = b.InterpretParser.parse(IP)
+assert ip[0]["titulo"] == "Soñar con volar" and "libertad" in ip[0]["texto"] and "Promo" not in ip[0]["texto"] and "no debe aparecer" not in ip[0]["texto"], ip
+IDX = {"snakes", "dream-about-snakes", "black-snake", "flying", "water", "dead-snake", "house-fire", "aguacate"}
+assert b.slug_interpret("snake", IDX) == "snakes" and b.slug_interpret("Flying", IDX) == "flying"
+assert b.slug_interpret("fire", IDX) == "house-fire" and b.slug_interpret("zzz", IDX) is None and b.slug_interpret("aguacate", IDX) == "aguacate"
+
 r.REG = Path(tempfile.mkdtemp()) / "registro.md"
 class A: pass
 def add(origen, sim):

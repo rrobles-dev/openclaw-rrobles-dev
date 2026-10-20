@@ -31,10 +31,11 @@ No lo uses cuando:
 |---|---|---|
 | Dream Bible | `https://www.dreambible.com/search.php?q=TERM` | Gratis, solo inglés. Una palabra por búsqueda. Automatizado en el script |
 | AuntyFlo | `https://www.auntyflo.com/dream-dictionary/TERM` | Gratis, solo inglés. URL directa, 404 si no existe la entrada. Automatizado en el script |
+| Dream Book (interpretdreams.io) | `https://www.interpretdreams.io/es/dream-dictionary/SLUG/` (el script resuelve el slug contra su índice de ~650 entradas) | **En español**, con escenarios, lectura psicológica y cultural. Sitio comercial de una app: solo se lee el diccionario; **nunca uses su herramienta "describe tu sueño"** (enviaría el relato a un tercero). Los nombres de entrada suelen ser en inglés (`snakes`, `flying`) |
 | Dream Dictionary | Sin URL de búsqueda: su `robots.txt` prohíbe el buscador interno (`?s=`). Encuentra la entrada con búsqueda web (`site:dreamdictionary.org snake dreams`) y léela con `--url` | Gratis, solo inglés. Solo manual |
 | Dream Moods | No usar | Su buscador devuelve 404 y no hay entradas legibles de forma automática |
 
-**Por defecto se consultan Dream Bible y AuntyFlo a la vez**, para tener más material con el que jugar. Si el usuario prefiere uno solo, guarda la preferencia y usa `--portales`. Si nombra otro portal, úsalo.
+**Por defecto se consultan Dream Bible, AuntyFlo y Dream Book a la vez**, para tener más material con el que jugar. Si el usuario prefiere uno solo, guarda la preferencia y usa `--portales`. Si nombra otro portal, úsalo.
 
 ## Scripts (úsalos en vez de leer páginas completas)
 
@@ -42,7 +43,7 @@ Ahorran tokens y tiempo: el script descarga, limpia el HTML, quita menús y anun
 
 - Consultar símbolos (varios en una llamada):
   `python3 -I skills/interpretacion-de-suenos/scripts/buscar_simbolos.py snake water --comparar --max-entradas 3 --max-chars 600`
-  (consulta ambos portales y marca los hilos en común entre ellos; `--portales dreambible` o `--portales auntyflo` para uno solo)
+  (consulta los tres portales; `--comparar` marca los hilos en común entre los dos en inglés, ya que Dream Book está en español; `--portales dreambible`, `auntyflo` o `interpretdreams` para elegir; separados por coma)
 - Una entrada concreta de otro portal: `... buscar_simbolos.py --url <url>`
 - Registrar: `python3 -I skills/interpretacion-de-suenos/scripts/registro.py agregar --titulo ... --simbolos "snake,house" ...`
 - Tendencias: `python3 -I skills/interpretacion-de-suenos/scripts/registro.py tendencias`
@@ -52,10 +53,10 @@ Si el script falla (red, cambio de formato del portal), recurre a WebFetch con l
 ## Flujo
 
 1. **Recibe el relato.** Si el usuario ya lo contó, no preguntes si tiene un sueño: pasa al paso 2. Si solo preguntó por un símbolo suelto, salta al paso 4 sin registrar nada.
-2. **Elige el recurso.** Usa la preferencia guardada en `memory/suenos/preferencias.md`; si no existe, consulta Dream Bible y AuntyFlo y menciónalo en una línea ("Me inspiro en Dream Bible y AuntyFlo; dime si prefieres otra fuente"). Pregunta solo si el usuario ya expresó una preferencia ambigua.
+2. **Elige el recurso.** Usa la preferencia guardada en `memory/suenos/preferencias.md`; si no existe, consulta los tres portales y menciónalo en una línea ("Me inspiro en Dream Bible, AuntyFlo y Dream Book; dime si prefieres otra fuente"). Pregunta solo si el usuario ya expresó una preferencia ambigua.
 3. **Extrae los elementos del relato:** personajes, lugares, acciones, objetos, emociones durante el sueño y al despertar. Elige de 3 a 5 símbolos clave: los más cargados emocionalmente o repetidos, no todas las palabras.
 4. **Consulta el recurso** con `buscar_simbolos.py` (todos los símbolos en una sola llamada) para cada símbolo clave:
-   - Traduce el símbolo al inglés antes de buscar, con una sola palabra por consulta.
+   - Traduce el símbolo al inglés antes de buscar, con una sola palabra por consulta (Dream Book también lo resuelve así). Del texto en español de Dream Book puedes tomar frases e imágenes directamente para la lectura.
    - Los resultados de Dream Bible no siempre incluyen la entrada exacta (por ejemplo, "house" puede devolver "Beach House" primero). Si el título no corresponde al símbolo, repite con `--max-entradas 5`, o sigue un enlace de `ver_tambien` (como "Snakes") y vuelve a consultar con ese término.
    - Si la búsqueda falla o no hay entrada, prueba un sinónimo. Si sigue sin haberla, improvisa tú el símbolo con imaginación y di que es una invención tuya.
    - Parafrasea, no copies texto textual, y cita siempre el enlace consultado.

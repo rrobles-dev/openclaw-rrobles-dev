@@ -13,7 +13,7 @@ Solo biblioteca estándar de Python 3 (sin `pip install`). Ejecutar desde la ra�
 ## `scripts/buscar_simbolos.py`
 
 ```
-buscar_simbolos.py TERM [TERM ...] [--portales dreambible,auntyflo] [--comparar]
+buscar_simbolos.py TERM [TERM ...] [--portales dreambible,auntyflo,interpretdreams] [--comparar]
                    [--max-entradas 3] [--max-chars 600] [--refresh]
 buscar_simbolos.py --url URL
 ```
@@ -23,8 +23,8 @@ buscar_simbolos.py --url URL
 - Cada resultado trae `simbolo`, `fuente` (para citar), `cache`, `entradas[{titulo, extracto, ver_tambien}]`, y `aviso` o `error` si algo falló.
 - Los extractos están truncados a propósito: parafrasea y cita el enlace, no copies.
 - Caché en `skills/interpretacion-de-suenos/.cache/` (en `.gitignore`). `--refresh` la ignora.
-- Portales automatizados: Dream Bible y AuntyFlo (`/dream-dictionary/TERM`, 404 si no existe). Dream Moods se descartó: su buscador devuelve 404.
-- `--comparar` añade `comparacion.temas_en_comun`: palabras relevantes presentes en el texto completo de ambos portales (excluye el propio símbolo y palabras vacías). Es solo una pista creativa: señala motivos que ambos portales comparten para usarlos como hilo central de la lectura. No mide credibilidad ni acuerdo entre portales.
+- Portales automatizados: Dream Bible, AuntyFlo y Dream Book (interpretdreams.io, en español: el script busca el símbolo en su índice de entradas y elige la mejor coincidencia; solo lee el diccionario, jamás su herramienta de "describe tu sueño"). Dream Bible y AuntyFlo (`/dream-dictionary/TERM`, 404 si no existe). Dream Moods se descartó: su buscador devuelve 404.
+- `--comparar` añade `comparacion.temas_en_comun`: palabras relevantes presentes en el texto completo de los portales en inglés (Dream Book queda fuera por estar en español) (excluye el propio símbolo y palabras vacías). Es solo una pista creativa: señala motivos que ambos portales comparten para usarlos como hilo central de la lectura. No mide credibilidad ni acuerdo entre portales.
 - Dream Dictionary: su `robots.txt` prohíbe `?s=`, así que no hay búsqueda automática. Encuentra la URL con búsqueda web y pásala con `--url`.
 
 ## `scripts/registro.py`
@@ -46,7 +46,7 @@ registro.py contar
 python3 -I skills/interpretacion-de-suenos/tests/test_scripts.py
 ```
 
-No usan red ni tocan el registro real. Si un portal cambia su HTML y `buscar_simbolos.py` devuelve `aviso: sin resultados` para símbolos que sí existen, revisa los parsers `DreamBibleParser` y `EntryContentParser`.
+No usan red ni tocan el registro real. Si un portal cambia su HTML y `buscar_simbolos.py` devuelve `aviso: sin resultados` para símbolos que sí existen, revisa los parsers `DreamBibleParser` y `EntryContentParser`, `AuntyParser` e `InterpretParser`.
 
 ## Mantenimiento
 

@@ -6,13 +6,18 @@ Uso:
   buscar_simbolos.py snake --max-entradas 3 --max-chars 500
   buscar_simbolos.py --url https://www.dreamdictionary.org/meaning/snake-dreams/
 
-Portales (--portales dreambible,auntyflo; por defecto ambos):
+Portales (--portales dreambible,auntyflo,interpretdreams; por defecto los tres):
+  interpretdreams: en español (Dream Book). Resuelve el símbolo contra su índice
+              de ~650 entradas (nombres mayormente en inglés: snakes, flying,
+              house…). Solo lee el diccionario; NUNCA usa su herramienta de
+              "describe tu sueño" (enviaría el relato a un tercero).
   dreambible: search.php?q=TERM, permitido por su robots.txt.
   auntyflo:   /dream-dictionary/TERM (slug directo; 404 si no existe).
               Dream Moods se descartó: su buscador devuelve 404 y no hay
               entradas legibles de forma automática.
 Con --comparar añade, por símbolo, los temas que coinciden entre portales
-(heurística de palabras compartidas; el agente decide si el sentido coincide).
+(pista creativa de palabras compartidas; solo entre los portales en inglés,
+porque Dream Book está en español).
   --url: cualquier página de entrada (p. ej. Dream Dictionary, hallada con
          búsqueda web). dreamdictionary.org prohíbe en robots.txt su buscador
          interno (?s=), por eso no se automatiza la búsqueda allí.
@@ -29,6 +34,8 @@ CACHE = Path(__file__).resolve().parent.parent / ".cache"
 TTL = 7 * 24 * 3600
 DREAMBIBLE = "https://www.dreambible.com/search.php?q="
 AUNTY = "https://www.auntyflo.com/dream-dictionary/"
+INTERPRET = "https://www.interpretdreams.io/es/dream-dictionary/"
+PORTALES = ("dreambible", "auntyflo", "interpretdreams")
 
 
 def fetch(url, refresh=False):
@@ -144,6 +151,42 @@ def coincidencias(textos, top=8, excluir=()):
     return [w for w in sorted(comunes, key=lambda w: -min(c[w] for c in cs))[:top]]
 
 
+class InterpretParser:
+    """Dream Book: h1 + párrafos del <main>, sin promociones ni el widget de la app."""
+    PROMO = re.compile(r"Dream Book|app gratuita|Imágenes de ejemplo|Toca una imagen|Descub|Describe tu sueño|Gratis|Sin registro", re.I)
+
+    @staticmethod
+    def parse(page):
+        m = re.search(r"<h1[^>]*>(.*?)</h1>", page, re.S)
+        if not m: return []
+        titulo = clean(re.sub(r"<[^>]+>", " ", m.group(1)))
+        body = re.sub(r"<(script|style|svg|nav|header|footer)[^>]*>.*?</\1>", "", page, flags=re.S)
+        mm = re.search(r"<main.*?</main>", body, re.S)
+        body = mm.group(0) if mm else body
+        body = re.sub(r"<h2\b[^>]*>", "\n##", body)
+        body = re.sub(r"</?(p|h1|h3|li|div|br|section|article|ul)\b[^>]*>", "\n", body)
+        partes = []
+        for linea in re.sub(r"<[^>]+>", "", body).split("\n"):
+            t = clean(linea)
+            if t.startswith("##"):
+                if re.search(r"relacionados|pregunta", t, re.I): break  # fin del contenido útil
+                continue
+            if len(t) >= 100 and not InterpretParser.PROMO.search(t): partes.append(t)
+        txt = " ".join(partes)
+        return [{"titulo": titulo, "texto": txt, "ver_tambien": []}] if txt else []
+
+
+def slug_interpret(term, indice):
+    """Elige la entrada del índice que mejor encaja con el símbolo (o None)."""
+    base = re.sub(r"[^a-z0-9ñáéíóúü]+", "-", term.lower()).strip("-")
+    sing = base[:-1] if base.endswith("s") else base
+    for c in (base, base + "s", sing, "dream-about-" + base, "dream-about-" + base + "s", "dream-about-" + sing + "s"):
+        if c in indice: return c
+    palabras = [w for w in (base.split("-") + [sing]) if w]
+    cand = [s for s in indice if all(re.search(rf"(^|-){re.escape(w.rstrip('s'))}s?(-|$)", s) for w in palabras[:len(base.split('-'))])]
+    return min(cand, key=len) if cand else None
+
+
 def trunc(t, n):
     return t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + "…"
 
@@ -175,6 +218,16 @@ def consultar(portal, term, a):
     """Devuelve el dict de resultado de un símbolo en un portal."""
     if portal == "dreambible":
         url = DREAMBIBLE + urllib.parse.quote_plus(term)
+    elif portal == "interpretdreams":
+        try:
+            idx_html, _ = fetch(INTERPRET, a.refresh)
+            indice = set(re.findall(r'href="/es/dream-dictionary/([^"/#?]+)/?"', idx_html))
+        except Exception as e:
+            return {"portal": portal, "fuente": INTERPRET, "entradas": [], "error": f"{type(e).__name__}: {e}"}
+        slug = slug_interpret(term, indice)
+        if not slug:
+            return {"portal": portal, "fuente": INTERPRET, "entradas": [], "aviso": "sin entrada en el índice; prueba un sinónimo (suele estar en inglés)"}
+        url = INTERPRET + slug + "/"
     else:
         url = AUNTY + urllib.parse.quote(re.sub(r"\s+", "-", term.strip().lower()))
     r = {"portal": portal, "fuente": url}
@@ -184,12 +237,14 @@ def consultar(portal, term, a):
         if portal == "dreambible":
             ents = parse_dreambible(page, a.max_entradas, a.max_chars, term)
         else:
-            ents = [dict(e, extracto=trunc(e["texto"], a.max_chars), _completo=e["texto"]) for e in AuntyParser.parse(page)]
+            parser = InterpretParser if portal == "interpretdreams" else AuntyParser
+            ents = [dict(e, extracto=trunc(e["texto"], a.max_chars), _completo=e["texto"]) for e in parser.parse(page)]
             for e in ents: e.pop("texto", None)
         r["entradas"] = ents
         if not ents: r["aviso"] = "sin resultados; prueba un sinónimo o una sola palabra"
     except urllib.error.HTTPError as e:
-        r["aviso" if e.code == 404 else "error"] = "no existe la entrada (404)" if e.code == 404 else f"HTTP {e.code}"
+        gone = e.code in (404, 410)
+        r["aviso" if gone else "error"] = f"no existe la entrada ({e.code})" if gone else f"HTTP {e.code}"
         r["entradas"] = []
     except Exception as e:
         r["error"] = f"{type(e).__name__}: {e}"
@@ -200,21 +255,21 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("terminos", nargs="*", help="símbolos en inglés, una palabra o frase corta cada uno")
     ap.add_argument("--url", help="página de entrada concreta (en vez de buscar)")
-    ap.add_argument("--portales", default="dreambible,auntyflo")
+    ap.add_argument("--portales", default=",".join(PORTALES))
     ap.add_argument("--comparar", action="store_true", help="añade coincidencias entre portales")
     ap.add_argument("--max-entradas", type=int, default=3)
     ap.add_argument("--max-chars", type=int, default=600, help="caracteres por extracto")
     ap.add_argument("--refresh", action="store_true", help="ignorar caché")
     a = ap.parse_args()
     if not a.terminos and not a.url: ap.error("indica términos o --url")
-    portales = [x for x in a.portales.split(",") if x in ("dreambible", "auntyflo")]
-    if not portales: ap.error("portales válidos: dreambible, auntyflo")
+    portales = [x for x in a.portales.split(",") if x in PORTALES]
+    if not portales: ap.error("portales válidos: " + ", ".join(PORTALES))
 
     res = []
     for term in a.terminos:
         r = {"simbolo": term, "portales": [consultar(p, term, a) for p in portales]}
         if a.comparar:
-            textos = [" ".join(e["_completo"] for e in p["entradas"]) for p in r["portales"] if p.get("entradas")]
+            textos = [" ".join(e["_completo"] for e in p["entradas"]) for p in r["portales"] if p.get("entradas") and p["portal"] != "interpretdreams"]  # solo inglés entre sí
             r["comparacion"] = {"portales_con_resultado": len(textos), "temas_en_comun": coincidencias(textos, excluir=term.lower().split())}
         for p in r["portales"]:
             for e in p.get("entradas", []): e.pop("_completo", None)
