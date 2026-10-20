@@ -21,7 +21,9 @@ from verificar_enlaces import verificar
 
 HISTORIAL = Path(__file__).resolve().parents[3] / "memory" / "noticias"
 RETENCION_DIAS = 7
-LIMITES = {"secundarias": 3, "economia": 3, "internacional": 2, "deportes": 2, "otros": 2}
+LIMITES = {"secundarias": 5, "economia": 3, "internacional": 2, "deportes": 2, "otros": 2}
+SECUNDARIAS_MIN = 3   # siempre al menos 3 secundarias nacionales
+SECUNDARIAS_EXTRA = 5  # las que pasen de 3 solo entran si las cubren al menos 5 medios
 MIN_OTROS = 3          # medios mínimos para que algo caiga en "Otros"
 MIN_FUENTES_OK = 4
 MIN_ARTICULOS = 30
@@ -99,13 +101,14 @@ def puntaje(g):
 def elegir_enlace(g, fuentes, verif=verificar):
     """Primer medio por prioridad cuya nota pasa la verificación (máx. 4 intentos)."""
     clave = "prioridad_economia" if g["seccion"] == "economia" else "prioridad"
+    centrales = ordenar_centrales(g, fuentes) if all("toks" in a for a in g["articulos"]) else g["articulos"]
     orden = sorted({a["medio"] for a in g["articulos"]},
                    key=lambda m: fuentes[m].get(clave, fuentes[m]["prioridad"]))
     intentos = 0
     for m in orden:
         if fuentes[m]["acceso"] != "medido" and intentos >= 4:
             break
-        art = next(a for a in g["articulos"] if a["medio"] == m)
+        art = next(a for a in centrales if a["medio"] == m)  # la nota del medio más cercana al titular
         if fuentes[m]["acceso"] != "medido":
             intentos += 1
         r = verif(art["link"], fuentes[m]["acceso"])
@@ -164,10 +167,13 @@ def seleccionar(grupos, fuentes):
 
     titular = tomar(lambda g: g["seccion"] not in ("deportes", "internacional", "otros"), 1)
     sel = {"titular": titular[0] if titular else None}
-    sel["secundarias"] = tomar(lambda g: g["seccion"] == "nacional", LIMITES["secundarias"])
+    sel["secundarias"] = tomar(lambda g: g["seccion"] == "nacional", SECUNDARIAS_MIN)
+    sel["secundarias"] += tomar(lambda g: g["seccion"] == "nacional" and len(g["medios"]) >= SECUNDARIAS_EXTRA,
+                                LIMITES["secundarias"] - len(sel["secundarias"]))
     for sec in ("economia", "internacional", "deportes"):
         sel[sec] = tomar(lambda g, s=sec: g["seccion"] == s, LIMITES[sec])
-    sel["otros"] = tomar(lambda g: len(g["medios"]) >= MIN_OTROS, LIMITES["otros"])
+    # "Otros" es para temas que no son política, economía, internacional ni deportes (cultura, espectáculos…)
+    sel["otros"] = tomar(lambda g: g["seccion"] == "otros" and len(g["medios"]) >= MIN_OTROS, LIMITES["otros"])
     return sel
 
 
@@ -178,7 +184,7 @@ def esc(t):
 
 def linea(it, marca="•"):
     n = it["medios"]
-    s = f'{marca} {esc(it["titulo"])} — 📰 {n} medio{"s" if n != 1 else ""}'
+    s = f'{marca} {esc(recortar(it["titulo"], 150))} — 📰 {n} medio{"s" if n != 1 else ""}'
     if it["enlace"]:
         s += f' · <a href="{html.escape(it["enlace"])}">{esc(it["enlace_medio"])}</a>'
     else:
@@ -188,14 +194,14 @@ def linea(it, marca="•"):
     return s
 
 
-def borrador(res, hoy, lim=None):
-    lim = dict(LIMITES, **(lim or {}))
+def borrador(res, hoy):
+    lim = LIMITES
     d = f"{DIAS[hoy.weekday()]} {hoy.day} de {MESES[hoy.month - 1]}"
     L = [f"🗞️ <b>Resumen del día · {d}</b>", ""]
     t = res.get("titular")
     if t:
         n = t["medios"]
-        L += ["<b>TITULAR PRINCIPAL</b>", f'<b>{esc(t["titulo"])}</b>',
+        L += ["<b>TITULAR PRINCIPAL</b>", f'<b>{esc(recortar(t["titulo"], 180))}</b>',
               f'📰 {n} medio{"s" if n != 1 else ""}' + (f' · <a href="{html.escape(t["enlace"])}">Leer en {esc(t["enlace_medio"])}</a>'
                                                        if t["enlace"] else " · sin enlace libre")]
         if t["descripcion"]:
@@ -213,15 +219,25 @@ def borrador(res, hoy, lim=None):
 
 
 def ajustar(res, hoy):
-    """Reduce secciones hasta que el borrador quepa en Telegram."""
-    lim = {}
-    for paso in (("otros", 0), ("secundarias", 2), ("economia", 2), ("internacional", 1), ("deportes", 1),
-                 ("economia", 1), ("secundarias", 1)):
-        b = borrador(res, hoy, lim)
-        if len(b) <= MAX_CHARS:
-            return b
-        lim[paso[0]] = paso[1]
-    return borrador(res, hoy, lim)[:MAX_CHARS]
+    """Si el borrador no cabe en Telegram, quita primero las noticias con menos medios.
+
+    Nunca quita el titular, las 3 primeras secundarias ni la última noticia de una sección (salvo en "Otros", que es opcional).
+    Con igual número de medios, caen antes 'otros', luego deportes, internacional, economía y secundarias."""
+    res = dict(res)
+    for k in LIMITES:
+        res[k] = list(res[k])
+    orden_baja = ["otros", "deportes", "internacional", "economia", "secundarias"]
+    while len(borrador(res, hoy)) > MAX_CHARS:
+        cand = []
+        for k in LIMITES:
+            minimo = {"secundarias": SECUNDARIAS_MIN, "otros": 0}.get(k, 1)
+            if len(res[k]) > minimo:
+                cand.append((res[k][-1]["medios"], orden_baja.index(k), k))
+        if not cand:
+            break
+        _, _, k = min(cand)
+        res[k].pop()
+    return borrador(res, hoy)[:MAX_CHARS]
 
 
 # ---------- orquestación ----------

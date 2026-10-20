@@ -15,7 +15,7 @@ armar_resumen.py [--formato json|borrador] [--horas 30] [--refresh] [--sin-verif
 ```
 - `ok_para_enviar` es falso si responden menos de 4 fuentes, hay menos de 30 notas recientes o no hay titular. Con `--formato borrador` en ese caso no imprime el borrador, escribe `NO ENVIAR: ...` en stderr y sale con código 2.
 - Cada ítem trae `titulo`, `medios` (cuántos), `nombres`, `seccion`, `descripcion` (si algún feed la da), `otros_titulos`, `repetida_hace_dias`, `enlace` y `enlace_medio` (nulos si ningún medio tiene enlace libre).
-- **Orden y selección:** titular = tema nacional con más medios (puede ser de economía); secundarias = 3 nacionales; luego economía (3), internacional (2), deportes (2) y otros (2, con 3 o más medios). Los temas repetidos de días anteriores pierden 2 puntos.
+- **Orden y selección:** titular = tema nacional con más medios (puede ser de economía); secundarias = 3 nacionales, más hasta 2 si las cubren 5 o más medios; luego economía (3), internacional (2), deportes (2) y otros (2: cultura y similares con 3 o más medios). Los temas repetidos de días anteriores pierden 2 puntos.
 - **Historial:** `memory/noticias/AAAA-MM-DD.json` (ignorado por git). Cada ejecución borra los archivos con más de 7 días.
 - `--sin-verificar` salta la comprobación de enlaces; solo para pruebas.
 

@@ -153,7 +153,43 @@ assert not res3["ok_para_enviar"] and "fuentes respondieron" in res3["avisos"][0
 largo = dict(res, otros=[dict(res["deportes"][0], titulo="x" * 900) for _ in range(2)],
              economia=[dict(res["economia"][0], titulo="y" * 900) for _ in range(3)])
 bl = ar.ajustar(largo, hoy)
-assert len(bl) <= ar.MAX_CHARS and "<b>Otros</b>" not in bl
+
+assert len(bl) <= ar.MAX_CHARS and "y" * 200 not in bl   # los títulos se acotan a 150 caracteres
+# temas nacionales grandes que no caben en las 3 secundarias van como secundarias, no en "Otros"
+mas = list(base)
+for t, ms in [("Kast instruye expulsión extranjeros detenidos marcha desmanes", ["cnn", "mega", "mostrador", "dinamo", "pauta"]),
+              ("Cathy Barriga juicio oral juez inhabilitó audiencia", ["cnn", "mega", "mostrador", "dinamo", "pauta"]),
+              ("Seremi anuncia cierre temporal carretera cordillera nieve", ["cnn", "mega", "mostrador"])]:
+    for i, m in enumerate(ms):
+        mas.append({"medio": m, "nombre": fuentes[m]["nombre"], "titulo": t + (" " * i), "link": f"https://{m}.cl/pais/{t[:5]}-{m}",
+                    "fecha": None, "seccion_fuente": "", "descripcion": ""})
+r4 = ar.armar(articulos=mas, estado=estado, hoy=hoy, verif=lambda u, ac: {"ok": ac != "medido"}, carpeta=Path(tempfile.mkdtemp()))
+medios_sec = [i["medios"] for i in r4["secundarias"]]
+assert len(medios_sec) == 5 and medios_sec[:2] == [4, 5] or sorted(medios_sec, reverse=True)[:3] == [5, 5, 4], medios_sec
+assert not r4["otros"]
+# recorte por importancia: cae primero lo que menos medios tiene, nunca por debajo de 3 secundarias
+cargado = dict(r4, deportes=[dict(r4["deportes"][0], titulo="d" * 140, medios=2) for _ in range(2)],
+               internacional=[dict(r4["internacional"][0], titulo="i" * 140, medios=2) for _ in range(2)],
+               economia=[dict(r4["economia"][0], titulo="e" * 140, medios=m) for m in (6, 5, 3)],
+               secundarias=[dict(r4["secundarias"][0], titulo="s" * 140, medios=m) for m in (6, 6, 5, 5, 5)])
+cargado["otros"] = [dict(r4["deportes"][0], titulo="o" * 140, medios=3)]
+for k in ("secundarias", "economia", "internacional", "deportes", "otros"):
+    for it in cargado[k]:
+        it["enlace"] = "https://x.cl/" + "z" * 200           # enlaces largos para forzar el recorte
+cargado["titular"] = dict(cargado["titular"], enlace="https://x.cl/" + "z" * 200)
+assert len(ar.borrador(cargado, hoy)) > ar.MAX_CHARS
+bc = ar.ajustar(cargado, hoy)
+assert len(bc) <= ar.MAX_CHARS and bc.count("•") >= 3 + 2 + 1 + 1   # 3 secundarias + economía + internacional + deportes mínimos
+assert bc.count("s" * 140) >= ar.SECUNDARIAS_MIN                   # las 3 secundarias obligatorias siguen
+assert bc.count("d" * 140) + bc.count("i" * 140) < 4                 # lo de 2 medios se recorta antes que lo de 5 o 6
+assert all(i["medios"] >= ar.SECUNDARIAS_EXTRA for i in r4["secundarias"][3:]) or len(r4["secundarias"]) <= 3
+# el enlace sale de la nota más cercana al titular dentro del medio elegido
+gcen = {"seccion": "nacional", "articulos": [dict(art("cnn", "Tema distinto sin relación con el grupo principal"), link="https://cnn/periferica"),
+        dict(art("cnn", "Fondo E AFP pérdidas sanción Superintendencia"), link="https://cnn/central"),
+        art("mega", "Fondo E AFP pérdidas sanción Superintendencia regulador")]}
+FC = {"cnn": {"nombre": "CNN", "prioridad": 1, "acceso": "libre"}, "mega": {"nombre": "Mega", "prioridad": 2, "acceso": "libre"}}
+assert ar.elegir_enlace(gcen, FC, lambda u, ac: {"ok": True})[0] == "https://cnn/central"
+
 # guardado de historial
 c = Path(tempfile.mkdtemp()); ar.guardar_historial(res, hoy, c)
 assert json.loads((c / "2026-10-20.json").read_text())[0]["medios"] == 5
