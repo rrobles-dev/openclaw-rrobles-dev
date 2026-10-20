@@ -24,7 +24,7 @@ buscar_simbolos.py --url URL
 - Los extractos están truncados a propósito: parafrasea y cita el enlace, no copies.
 - Caché en `skills/interpretacion-de-suenos/.cache/` (en `.gitignore`). `--refresh` la ignora.
 - Portales automatizados: Dream Bible y AuntyFlo (`/dream-dictionary/TERM`, 404 si no existe). Dream Moods se descartó: su buscador devuelve 404.
-- `--comparar` añade `comparacion.temas_en_comun`: palabras relevantes presentes en el texto completo de ambos portales (excluye el propio símbolo y palabras vacías). Es solo una **heurística**; que el sentido coincida lo decide el agente leyendo los extractos.
+- `--comparar` añade `comparacion.temas_en_comun`: palabras relevantes presentes en el texto completo de ambos portales (excluye el propio símbolo y palabras vacías). Es solo una pista creativa: señala motivos que ambos portales comparten para usarlos como hilo central de la lectura. No mide credibilidad ni acuerdo entre portales.
 - Dream Dictionary: su `robots.txt` prohíbe `?s=`, así que no hay búsqueda automática. Encuentra la URL con búsqueda web y pásala con `--url`.
 
 ## `scripts/registro.py`
