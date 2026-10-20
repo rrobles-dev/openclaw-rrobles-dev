@@ -19,11 +19,14 @@ No lo uses cuando:
 
 ## Recursos web
 
-| Prioridad | Recurso | Consulta de un símbolo | Notas |
-|---|---|---|---|
-| 1 (defecto) | Dream Bible | `https://www.dreambible.com/search.php?q=TERM` | Gratis, sin muro de pago, solo inglés. Una palabra por búsqueda. Navegación alfabética: `/dreamdictionary/<letra>.html` |
-| 2 | Dream Dictionary | Sin URL de búsqueda: su `robots.txt` prohíbe el buscador interno (`?s=`). Encuentra la entrada con búsqueda web (`site:dreamdictionary.org snake dreams`) y léela con `--url` | Gratis, solo inglés. Las URLs de entradas varían (`/meaning/snake-dreams/`, `/dream-dictionary/...`) |
-| 3 | Dream Moods | `https://www.dreammoods.com/dreamdictionary/` | Muy conocido, pero no se pudo verificar su acceso automático; úsalo solo si el usuario lo pide |
+| Recurso | Consulta de un símbolo | Notas |
+|---|---|---|
+| Dream Bible | `https://www.dreambible.com/search.php?q=TERM` | Gratis, solo inglés. Una palabra por búsqueda. Automatizado en el script |
+| AuntyFlo | `https://www.auntyflo.com/dream-dictionary/TERM` | Gratis, solo inglés. URL directa, 404 si no existe la entrada. Automatizado en el script |
+| Dream Dictionary | Sin URL de búsqueda: su `robots.txt` prohíbe el buscador interno (`?s=`). Encuentra la entrada con búsqueda web (`site:dreamdictionary.org snake dreams`) y léela con `--url` | Gratis, solo inglés. Solo manual |
+| Dream Moods | No usar | Su buscador devuelve 404 y no hay entradas legibles de forma automática |
+
+**Por defecto se consultan Dream Bible y AuntyFlo a la vez y se comparan.** Si el usuario prefiere uno solo, guarda la preferencia y usa `--portales`.
 
 Si el usuario nombra otro portal, úsalo. Ningún diccionario tiene validez científica: las lecturas son simbólicas y subjetivas.
 
@@ -32,7 +35,8 @@ Si el usuario nombra otro portal, úsalo. Ningún diccionario tiene validez cien
 Ahorran tokens y tiempo: el script descarga, limpia el HTML, quita menús y anuncios, trunca y guarda caché 7 días; el agente solo recibe JSON compacto. Detalles en [references/scripts.md](references/scripts.md).
 
 - Consultar símbolos (varios en una llamada):
-  `python3 -I skills/interpretacion-de-suenos/scripts/buscar_simbolos.py snake water --max-entradas 3 --max-chars 600`
+  `python3 -I skills/interpretacion-de-suenos/scripts/buscar_simbolos.py snake water --comparar --max-entradas 3 --max-chars 600`
+  (consulta ambos portales; `--portales dreambible` o `--portales auntyflo` para uno solo)
 - Una entrada concreta de otro portal: `... buscar_simbolos.py --url <url>`
 - Registrar: `python3 -I skills/interpretacion-de-suenos/scripts/registro.py agregar --titulo ... --simbolos "snake,house" ...`
 - Tendencias: `python3 -I skills/interpretacion-de-suenos/scripts/registro.py tendencias`
@@ -42,25 +46,27 @@ Si el script falla (red, cambio de formato del portal), recurre a WebFetch con l
 ## Flujo
 
 1. **Recibe el relato.** Si el usuario ya lo contó, no preguntes si tiene un sueño: pasa al paso 2. Si solo preguntó por un símbolo suelto, salta al paso 4 sin registrar nada.
-2. **Elige el recurso.** Usa la preferencia guardada en `memory/suenos/preferencias.md`; si no existe, usa Dream Bible y menciónalo en una línea ("Lo miro en Dream Bible; dime si prefieres otro"). Pregunta solo si el usuario ya expresó una preferencia ambigua.
+2. **Elige el recurso.** Usa la preferencia guardada en `memory/suenos/preferencias.md`; si no existe, consulta Dream Bible y AuntyFlo y menciónalo en una línea ("Lo contrasto en Dream Bible y AuntyFlo; dime si prefieres otro"). Pregunta solo si el usuario ya expresó una preferencia ambigua.
 3. **Extrae los elementos del relato:** personajes, lugares, acciones, objetos, emociones durante el sueño y al despertar. Elige de 3 a 5 símbolos clave: los más cargados emocionalmente o repetidos, no todas las palabras.
 4. **Consulta el recurso** con `buscar_simbolos.py` (todos los símbolos en una sola llamada) para cada símbolo clave:
    - Traduce el símbolo al inglés antes de buscar, con una sola palabra por consulta.
    - Los resultados de Dream Bible no siempre incluyen la entrada exacta (por ejemplo, "house" puede devolver "Beach House" primero). Si el título no corresponde al símbolo, repite con `--max-entradas 5`, o sigue un enlace de `ver_tambien` (como "Snakes") y vuelve a consultar con ese término.
    - Si la búsqueda falla o no hay entrada, prueba un sinónimo y luego el recurso de siguiente prioridad. Dile al usuario qué símbolos no encontraste.
    - Parafrasea, no copies texto textual, y cita siempre el enlace consultado.
-5. **Interpreta.** Integra los significados con el contexto y las emociones del usuario, no como lista suelta de símbolos. Presenta varias lecturas posibles cuando el diccionario las da.
-6. **Pregunta para afinar:** máximo 2 o 3 preguntas por turno, abiertas y sin sugerir la respuesta. Prioriza las emociones y qué ocurre en la vida real del usuario relacionado con el sueño. Ejemplo: "¿Cómo te sentías en ese momento?".
-7. **Registra** el sueño con `registro.py agregar` (ver "Registro"), después de interpretar, e indica al usuario que quedó guardado.
-8. **Tendencias:** ejecuta `registro.py tendencias`; si `umbral_cumplido` es verdadero (ver "Tendencias"), añade el reporte; si no, no lo menciones.
+5. **Contrasta las fuentes.** Con `--comparar`, `temas_en_comun` es solo una pista (palabras compartidas). Lee los extractos y decide tú si los portales coinciden en el sentido. Dilo así: *coinciden* (misma idea en ambos), *se complementan* (enfoques distintos que no se contradicen) o *difieren* (lecturas opuestas; preséntalas ambas, sin forzar una). Si solo un portal tiene la entrada, indícalo y baja la confianza de esa lectura.
+6. **Interpreta.** Integra los significados con el contexto y las emociones del usuario, no como lista suelta de símbolos. Presenta varias lecturas posibles cuando el diccionario las da.
+7. **Pregunta para afinar:** máximo 2 o 3 preguntas por turno, abiertas y sin sugerir la respuesta. Prioriza las emociones y qué ocurre en la vida real del usuario relacionado con el sueño. Ejemplo: "¿Cómo te sentías en ese momento?".
+8. **Registra** el sueño con `registro.py agregar` (ver "Registro"), después de interpretar, e indica al usuario que quedó guardado.
+9. **Tendencias:** ejecuta `registro.py tendencias`; si `umbral_cumplido` es verdadero (ver "Tendencias"), añade el reporte; si no, no lo menciones.
 
 ## Formato de la respuesta
 
 1. **Resumen:** el sueño en una línea.
 2. **Símbolos clave:** cada uno con su significado parafraseado y el enlace de la fuente.
-3. **Lectura integrada:** qué podría significar en conjunto, conectado con las emociones reportadas.
-4. **Preguntas** de seguimiento (máximo 3).
-5. **Tendencias:** solo si hay datos suficientes.
+3. **Acuerdo entre fuentes:** una línea (coinciden / se complementan / difieren).
+4. **Lectura integrada:** qué podría significar en conjunto, conectado con las emociones reportadas.
+5. **Preguntas** de seguimiento (máximo 3).
+6. **Tendencias:** solo si hay datos suficientes.
 
 Cierra con una sola línea, solo en la primera interpretación de la conversación: "Es una lectura simbólica orientativa, no un diagnóstico."
 

@@ -19,6 +19,10 @@ WP = '<h1 class="entry-title">Snake Dreams</h1><div class="entry-content"><p>Hol
 w = b.parse_entry_page(WP, 600)
 assert w[0]["titulo"] == "Snake Dreams" and "dentro" in w[0]["extracto"] and "fuera" not in w[0]["extracto"] and "x()" not in w[0]["extracto"], w
 
+assert b.coincidencias(["fear of failure and loss", "loss brings fear", "unrelated words only"]) == []
+assert b.coincidencias(["snake brings fear and loss", "fear of loss from snake"], excluir=["snake"]) == ["fear", "loss"] or set(b.coincidencias(["snake brings fear and loss", "fear of loss from snake"], excluir=["snake"])) == {"fear", "loss"}
+assert b.AuntyParser.parse('<h2 class="node-title field-wrapper text-center"><span>Snake</span></h2><div>Un <b>texto</b></div>You may also like<p>fuera</p>')[0]["texto"] == "Un texto"
+
 r.REG = Path(tempfile.mkdtemp()) / "registro.md"
 class A: pass
 def add(origen, sim):

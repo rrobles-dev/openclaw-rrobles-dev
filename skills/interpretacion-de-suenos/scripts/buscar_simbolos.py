@@ -6,8 +6,13 @@ Uso:
   buscar_simbolos.py snake --max-entradas 3 --max-chars 500
   buscar_simbolos.py --url https://www.dreamdictionary.org/meaning/snake-dreams/
 
-Portales:
-  dreambible (defecto): search.php?q=TERM, permitido por su robots.txt.
+Portales (--portales dreambible,auntyflo; por defecto ambos):
+  dreambible: search.php?q=TERM, permitido por su robots.txt.
+  auntyflo:   /dream-dictionary/TERM (slug directo; 404 si no existe).
+              Dream Moods se descartó: su buscador devuelve 404 y no hay
+              entradas legibles de forma automática.
+Con --comparar añade, por símbolo, los temas que coinciden entre portales
+(heurística de palabras compartidas; el agente decide si el sentido coincide).
   --url: cualquier página de entrada (p. ej. Dream Dictionary, hallada con
          búsqueda web). dreamdictionary.org prohíbe en robots.txt su buscador
          interno (?s=), por eso no se automatiza la búsqueda allí.
@@ -15,7 +20,7 @@ Portales:
 Solo biblioteca estándar. Caché en .cache/ (7 días) para no repetir peticiones.
 Salida: extractos truncados + enlace; el agente debe parafrasear y citar.
 """
-import argparse, hashlib, html, json, re, sys, time, urllib.parse, urllib.request
+import argparse, hashlib, html, json, re, sys, time, urllib.error, urllib.parse, urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -23,6 +28,7 @@ UA = "Mozilla/5.0 (compatible; OpenClaw-dream-skill/1.0)"
 CACHE = Path(__file__).resolve().parent.parent / ".cache"
 TTL = 7 * 24 * 3600
 DREAMBIBLE = "https://www.dreambible.com/search.php?q="
+AUNTY = "https://www.auntyflo.com/dream-dictionary/"
 
 
 def fetch(url, refresh=False):
@@ -103,6 +109,41 @@ class EntryContentParser(HTMLParser):
         elif 0 < self.depth < 100: self.text.append(d)
 
 
+class AuntyParser:
+    """Drupal: el artículo va entre <span>Título</span> (node-title) y 'You may also like'."""
+    @staticmethod
+    def parse(page):
+        m = re.search(r'<h2 class="node-title field-wrapper[^>]*><span>(.*?)</span>', page, re.S)
+        if not m: return []
+        seg = page[m.end(): page.find("You may also like", m.end()) if "You may also like" in page else None]
+        seg = re.sub(r"<(script|style|picture|nav)[^>]*>.*?</\1>|<source[^>]*>|<img[^>]*>", "", seg, flags=re.S)
+        txt = clean(re.sub(r"<[^>]+>", " ", seg))
+        return [{"titulo": clean(m.group(1)), "texto": txt, "ver_tambien": []}] if txt else []
+
+
+STOP = set("""a about above after again all also an and any are as at be because been before being between both but by can could did do does
+doing down during each few for from further had has have having he her here hers him his how i if in into is it its just me more most my no nor not
+now of off on once only or other our out over own same she should so some such than that the their them then there these they this those through to
+too doesn don didn isn aren wasn good look looks think believe feel feels need want under until up very was we were what when where which while who whom why will with would you your yours dream dreams dreaming dreamt represents
+represent represented meaning means mean feelings feeling something someone may might often generally important often one two person people life
+waking see seeing seen like way thing things time know make made get gets also even much many well""".split())
+
+
+def temas(texto):
+    from collections import Counter
+    c = Counter(w for w in re.findall(r"[a-z]{4,}", texto.lower()) if w not in STOP)
+    return c
+
+
+def coincidencias(textos, top=8, excluir=()):
+    """Palabras presentes en todos los portales, ordenadas por la frecuencia mínima."""
+    cs = [temas(t) for t in textos if t]
+    if len(cs) < 2: return []
+    comunes = set.intersection(*[set(c) for c in cs]) - {w.rstrip("s") for w in excluir} - set(excluir)
+    comunes = {w for w in comunes if w.rstrip("s") not in {x.rstrip("s") for x in excluir}}
+    return [w for w in sorted(comunes, key=lambda w: -min(c[w] for c in cs))[:top]]
+
+
 def trunc(t, n):
     return t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + "…"
 
@@ -119,7 +160,7 @@ def parse_dreambible(page, max_ent, max_chars, term=""):
     for e in ents[:max_ent]:
         txt = clean(" ".join(e["texto"]))
         txt = re.sub(r"\*?Please See.*$", "", txt).strip()
-        out.append({"titulo": e["titulo"], "extracto": trunc(txt, max_chars),
+        out.append({"titulo": e["titulo"], "_completo": txt, "extracto": trunc(txt, max_chars),
                     "ver_tambien": e["ver_tambien"][:5]})
     return out
 
@@ -127,31 +168,63 @@ def parse_dreambible(page, max_ent, max_chars, term=""):
 def parse_entry_page(page, max_chars):
     p = EntryContentParser(); p.feed(page)
     txt = clean(" ".join(p.text))
-    return [{"titulo": clean(p.title), "extracto": trunc(txt, max_chars), "ver_tambien": []}] if txt else []
+    return [{"titulo": clean(p.title), "_completo": txt, "extracto": trunc(txt, max_chars), "ver_tambien": []}] if txt else []
+
+
+def consultar(portal, term, a):
+    """Devuelve el dict de resultado de un símbolo en un portal."""
+    if portal == "dreambible":
+        url = DREAMBIBLE + urllib.parse.quote_plus(term)
+    else:
+        url = AUNTY + urllib.parse.quote(re.sub(r"\s+", "-", term.strip().lower()))
+    r = {"portal": portal, "fuente": url}
+    try:
+        page, cached = fetch(url, a.refresh)
+        r["cache"] = cached
+        if portal == "dreambible":
+            ents = parse_dreambible(page, a.max_entradas, a.max_chars, term)
+        else:
+            ents = [dict(e, extracto=trunc(e["texto"], a.max_chars), _completo=e["texto"]) for e in AuntyParser.parse(page)]
+            for e in ents: e.pop("texto", None)
+        r["entradas"] = ents
+        if not ents: r["aviso"] = "sin resultados; prueba un sinónimo o una sola palabra"
+    except urllib.error.HTTPError as e:
+        r["aviso" if e.code == 404 else "error"] = "no existe la entrada (404)" if e.code == 404 else f"HTTP {e.code}"
+        r["entradas"] = []
+    except Exception as e:
+        r["error"] = f"{type(e).__name__}: {e}"
+    return r
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("terminos", nargs="*", help="símbolos en inglés, una palabra o frase corta cada uno")
     ap.add_argument("--url", help="página de entrada concreta (en vez de buscar)")
+    ap.add_argument("--portales", default="dreambible,auntyflo")
+    ap.add_argument("--comparar", action="store_true", help="añade coincidencias entre portales")
     ap.add_argument("--max-entradas", type=int, default=3)
     ap.add_argument("--max-chars", type=int, default=600, help="caracteres por extracto")
     ap.add_argument("--refresh", action="store_true", help="ignorar caché")
     a = ap.parse_args()
     if not a.terminos and not a.url: ap.error("indica términos o --url")
+    portales = [x for x in a.portales.split(",") if x in ("dreambible", "auntyflo")]
+    if not portales: ap.error("portales válidos: dreambible, auntyflo")
 
-    jobs = [(t, DREAMBIBLE + urllib.parse.quote_plus(t), "dreambible") for t in a.terminos]
-    if a.url: jobs.append((a.url, a.url, "pagina"))
     res = []
-    for term, url, kind in jobs:
-        r = {"simbolo": term, "fuente": url}
+    for term in a.terminos:
+        r = {"simbolo": term, "portales": [consultar(p, term, a) for p in portales]}
+        if a.comparar:
+            textos = [" ".join(e["_completo"] for e in p["entradas"]) for p in r["portales"] if p.get("entradas")]
+            r["comparacion"] = {"portales_con_resultado": len(textos), "temas_en_comun": coincidencias(textos, excluir=term.lower().split())}
+        for p in r["portales"]:
+            for e in p.get("entradas", []): e.pop("_completo", None)
+        res.append(r)
+    if a.url:
+        r = {"portal": "url", "fuente": a.url}
         try:
-            page, cached = fetch(url, a.refresh)
-            r["cache"] = cached
-            r["entradas"] = (parse_dreambible(page, a.max_entradas, a.max_chars, term) if kind == "dreambible"
-                             else parse_entry_page(page, a.max_chars))
-            if not r["entradas"]:
-                r["aviso"] = "sin resultados; prueba un sinónimo o una sola palabra"
+            page, cached = fetch(a.url, a.refresh); r["cache"] = cached
+            r["entradas"] = parse_entry_page(page, a.max_chars)
+            for e in r["entradas"]: e.pop("_completo", None)
         except Exception as e:
             r["error"] = f"{type(e).__name__}: {e}"
         res.append(r)
