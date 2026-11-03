@@ -4,12 +4,17 @@
 Uso:
   armar_resumen.py                    # JSON completo (secciones + borrador + estado)
   armar_resumen.py --formato borrador # solo el borrador en HTML de Telegram
+  armar_resumen.py --formato texto    # texto plano con la URL visible (entrega que descarta el HTML)
   armar_resumen.py --guardar          # además guarda el resumen en el historial (úsalo tras enviar)
 
 Importancia = número de medios distintos que cubren el tema. Titular principal = el tema nacional con más
 medios (puede ser de economía); luego secundarias nacionales, economía, internacional, deportes y "otros".
 Enlace = un solo enlace por noticia, del medio de mayor prioridad cuya nota pase verificar_enlaces.py.
 Historial en memory/noticias/AAAA-MM-DD.json; se borra lo de más de 7 días en cada ejecución.
+
+Formatos: "borrador" (HTML de Telegram) y "texto" (texto plano con la URL visible en su propia línea; Telegram la
+vuelve enlace sola). Usa "texto" cuando la entrega descarta el HTML, como `--announce` de las automatizaciones.
+Venezuela: sección aparte con fuentes globales (scripts/fuentes_venezuela.json); no entra en el ranking de Chile.
 """
 import argparse, concurrent.futures as cf, datetime as dt, html, json, sys
 from pathlib import Path
@@ -21,12 +26,13 @@ from verificar_enlaces import verificar
 
 HISTORIAL = Path(__file__).resolve().parents[3] / "memory" / "noticias"
 RETENCION_DIAS = 7
-LIMITES = {"secundarias": 5, "economia": 3, "internacional": 2, "deportes": 2, "otros": 2}
+LIMITES = {"secundarias": 5, "economia": 3, "internacional": 2, "venezuela": 3, "deportes": 2, "otros": 2}
 SECUNDARIAS_MIN = 3   # siempre al menos 3 secundarias nacionales
 SECUNDARIAS_EXTRA = 5  # las que pasen de 3 solo entran si las cubren al menos 5 medios
 MIN_OTROS = 3          # medios mínimos para que algo caiga en "Otros"
 MIN_FUENTES_OK = 4
 MIN_ARTICULOS = 30
+MIN_PALABRAS_ENLACE = 2  # palabras que la nota enlazada debe compartir con el titular mostrado
 MAX_CHARS = 4000       # Telegram admite 4096
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
@@ -104,11 +110,14 @@ def elegir_enlace(g, fuentes, verif=verificar):
     centrales = ordenar_centrales(g, fuentes) if all("toks" in a for a in g["articulos"]) else g["articulos"]
     orden = sorted({a["medio"] for a in g["articulos"]},
                    key=lambda m: fuentes[m].get(clave, fuentes[m]["prioridad"]))
+    rep = centrales[0] if centrales and "toks" in centrales[0] else None
     intentos = 0
     for m in orden:
         if fuentes[m]["acceso"] != "medido" and intentos >= 4:
             break
         art = next(a for a in centrales if a["medio"] == m)  # la nota del medio más cercana al titular
+        if rep and art is not rep and len(art["toks"] & rep["toks"]) < MIN_PALABRAS_ENLACE:
+            continue  # unida al grupo por palabras sueltas: mejor otro medio (o ninguno) que un enlace a otra noticia
         if fuentes[m]["acceso"] != "medido":
             intentos += 1
         r = verif(art["link"], fuentes[m]["acceso"])
@@ -177,6 +186,17 @@ def seleccionar(grupos, fuentes):
     return sel
 
 
+def ultima_fecha(g):
+    return max((a["fecha"] for a in g["articulos"] if a.get("fecha")), default="")
+
+
+def seleccionar_venezuela(grupos):
+    """Venezuela tiene pocas fuentes: más medios primero y, a igual número, la nota más reciente."""
+    for g in grupos:
+        g["seccion"] = "venezuela"
+    return sorted(grupos, key=lambda g: (puntaje(g), ultima_fecha(g)), reverse=True)[:LIMITES["venezuela"]]
+
+
 # ---------- borrador ----------
 def esc(t):
     return html.escape(t, quote=False)
@@ -210,7 +230,7 @@ def borrador(res, hoy):
     if res["secundarias"][:lim["secundarias"]]:
         L += ["<b>Otras noticias importantes</b>"] + [linea(i) for i in res["secundarias"][:lim["secundarias"]]] + [""]
     for clave, titulo in (("economia", "💰 <b>Economía y finanzas</b>"), ("internacional", "🌎 <b>Internacional</b>"),
-                          ("deportes", "⚽ <b>Deportes</b>"), ("otros", "🔎 <b>Otros</b>")):
+                          ("venezuela", "🇻🇪 <b>Venezuela</b>"), ("deportes", "⚽ <b>Deportes</b>"), ("otros", "🔎 <b>Otros</b>")):
         visibles = res[clave][:lim[clave]]
         if visibles:
             L += [titulo] + [linea(i) for i in visibles] + [""]
@@ -218,16 +238,53 @@ def borrador(res, hoy):
     return "\n".join(L)
 
 
-def ajustar(res, hoy):
+def plural(n):
+    return f'{n} medio{"s" if n != 1 else ""}'
+
+
+def linea_texto(it, marca="•"):
+    s = f'{marca} {recortar(it["titulo"], 150)} — 📰 {plural(it["medios"])}'
+    if it["repetida_hace_dias"] is not None:
+        s += " ↻"
+    return s + (f'\n  {it["enlace_medio"]}: {it["enlace"]}' if it["enlace"] else " · sin enlace libre")
+
+
+def texto(res, hoy):
+    """Mismo contenido que borrador(), en texto plano: la URL va entera en su propia línea."""
+    d = f"{DIAS[hoy.weekday()]} {hoy.day} de {MESES[hoy.month - 1]}"
+    L = [f"🗞️ Resumen del día · {d}", ""]
+    t = res.get("titular")
+    if t:
+        L += ["TITULAR PRINCIPAL", recortar(t["titulo"], 180), f'📰 {plural(t["medios"])}']
+        if t["enlace"]:
+            L.append(f'Leer en {t["enlace_medio"]}: {t["enlace"]}')
+        else:
+            L[-1] += " · sin enlace libre"
+        if t["descripcion"]:
+            L.append(t["descripcion"])
+        L.append("")
+    if res["secundarias"][:LIMITES["secundarias"]]:
+        L += ["Otras noticias importantes"] + [linea_texto(i) for i in res["secundarias"][:LIMITES["secundarias"]]] + [""]
+    for clave, titulo in (("economia", "💰 Economía y finanzas"), ("internacional", "🌎 Internacional"),
+                          ("venezuela", "🇻🇪 Venezuela"), ("deportes", "⚽ Deportes"), ("otros", "🔎 Otros")):
+        visibles = res[clave][:LIMITES[clave]]
+        if visibles:
+            L += [titulo] + [linea_texto(i) for i in visibles] + [""]
+    L.append("📰 = medios que cubren la noticia · ↻ sigue desde días anteriores")
+    return "\n".join(L)
+
+
+def ajustar(res, hoy, fmt=None):
     """Si el borrador no cabe en Telegram, quita primero las noticias con menos medios.
 
     Nunca quita el titular, las 3 primeras secundarias ni la última noticia de una sección (salvo en "Otros", que es opcional).
-    Con igual número de medios, caen antes 'otros', luego deportes, internacional, economía y secundarias."""
+    Con igual número de medios, caen antes 'otros', luego deportes, Venezuela, internacional, economía y secundarias."""
+    fmt = fmt or borrador
     res = dict(res)
     for k in LIMITES:
         res[k] = list(res[k])
-    orden_baja = ["otros", "deportes", "internacional", "economia", "secundarias"]
-    while len(borrador(res, hoy)) > MAX_CHARS:
+    orden_baja = ["otros", "deportes", "venezuela", "internacional", "economia", "secundarias"]
+    while len(fmt(res, hoy)) > MAX_CHARS:
         cand = []
         for k in LIMITES:
             minimo = {"secundarias": SECUNDARIAS_MIN, "otros": 0}.get(k, 1)
@@ -237,23 +294,28 @@ def ajustar(res, hoy):
             break
         _, _, k = min(cand)
         res[k].pop()
-    return borrador(res, hoy)[:MAX_CHARS]
+    return fmt(res, hoy)[:MAX_CHARS]
 
 
 # ---------- orquestación ----------
 def armar(horas=30, refresh=False, verificar_enlaces=True, hoy=None, articulos=None, estado=None,
-          verif=verificar, carpeta=None):
+          verif=verificar, carpeta=None, articulos_ve=None, estado_ve=None):
     hoy = hoy or hoy_santiago()
-    fuentes = {f["id"]: f for f in cargar_fuentes()}
+    fuentes_cl = cargar_fuentes()
+    fuentes_ve = cargar_fuentes("fuentes_venezuela.json")
+    fuentes = {f["id"]: f for f in fuentes_cl + fuentes_ve}
     if articulos is None:
         articulos, estado = leer_todas(None, horas, refresh)
+        articulos_ve, estado_ve = leer_todas(None, horas, refresh, "fuentes_venezuela.json")
     podar_historial(hoy, carpeta)
     historial = cargar_historial(hoy, carpeta)
-    grupos = agrupar(articulos, list(fuentes.values()))
-    for g in grupos:
+    grupos = agrupar(articulos, fuentes_cl)
+    grupos_ve = agrupar(articulos_ve or [], fuentes_ve)  # aparte: Venezuela no compite con el ranking de Chile
+    for g in grupos + grupos_ve:
         g["repetida"] = repetida_hace(g["toks"], historial, hoy)
     sel = seleccionar(grupos, fuentes)
-    res = {"fecha": hoy.isoformat(), "estado_fuentes": estado}
+    sel["venezuela"] = seleccionar_venezuela(grupos_ve)
+    res = {"fecha": hoy.isoformat(), "estado_fuentes": estado, "estado_venezuela": estado_ve or {}}
     res["titular"] = item(sel["titular"], fuentes) if sel["titular"] else None
     for k in LIMITES:
         res[k] = [item(g, fuentes) for g in sel[k]]
@@ -274,12 +336,13 @@ def armar(horas=30, refresh=False, verificar_enlaces=True, hoy=None, articulos=N
     res["ok_para_enviar"] = not avisos
     res["avisos"] = avisos
     res["borrador"] = ajustar(res, hoy)
+    res["texto"] = ajustar(res, hoy, texto)
     return res
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--formato", choices=["json", "borrador"], default="json")
+    ap.add_argument("--formato", choices=["json", "borrador", "texto"], default="json")
     ap.add_argument("--horas", type=int, default=30)
     ap.add_argument("--refresh", action="store_true")
     ap.add_argument("--sin-verificar", action="store_true", help="no comprueba enlaces (solo pruebas)")
@@ -288,11 +351,11 @@ def main():
     res = armar(a.horas, a.refresh, not a.sin_verificar)
     if a.guardar and res["ok_para_enviar"]:
         guardar_historial(res, hoy_santiago())
-    if a.formato == "borrador":
+    if a.formato in ("borrador", "texto"):
         if not res["ok_para_enviar"]:
             print("NO ENVIAR: " + "; ".join(res["avisos"]), file=sys.stderr)
             sys.exit(2)
-        print(res["borrador"])
+        print(res[a.formato])
     else:
         for it in ([res["titular"]] if res["titular"] else []) + [i for k in LIMITES for i in res[k]]:
             it.pop("_toks", None)

@@ -31,7 +31,9 @@ ano dias dia nuevo nueva nuevos nuevas primer primera dice afirma asegura asegur
 tambien podria puede pueden sera seran hoy ayer manana chile chileno chilena todo todos toda todas otro otra otros otras muy
 anuncia anuncian anuncio medida medidas afectada afectadas afectado afectados inicia inician pide piden apunta apuntan tiene tienen debe
 deben vuelve vuelven queda quedan busca buscan llama llaman revela revelan confirma confirman descarta descartan advierte advierten
-critica critican responde responden presenta presentan entrega entregan aprueba aprueban rechaza rechazan lanza lanzan tras como""".split())
+critica critican responde responden presenta presentan entrega entregan aprueba aprueban rechaza rechazan lanza lanzan tras como
+# conectores y verbos de cifras que unían notas sin relación (p. ej. 'Imacec sube, pero…' con 'venta de viviendas sube, pero…')
+pero sube suben cae caen baja bajan revisa revise quienes cuanto cual""".split())
 
 
 def sin_acentos(t):

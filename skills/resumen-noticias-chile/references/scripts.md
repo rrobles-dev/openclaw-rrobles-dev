@@ -4,18 +4,18 @@ Solo biblioteca estándar de Python 3 (sin `pip install`). Ejecutar desde la ra�
 
 | Script | Para qué | Salida |
 |---|---|---|
-| `leer_titulares.py` | Baja los feeds de `fuentes.json`, normaliza y filtra a las últimas 30 h. Caché de 20 min en `.cache/`. | `{articulos: [...], estado: {fuente: {ok, n, error?}}}` |
+| `leer_titulares.py` | Baja los feeds de `fuentes.json` (o de otra lista con `--archivo`, p. ej. `fuentes_venezuela.json`), normaliza, aplica el `filtro` de cada fuente si lo tiene y deja las últimas 30 h. Caché de 20 min en `.cache/`. | `{articulos: [...], estado: {fuente: {ok, n, error?}}}` |
 | `agrupar.py` | Clasifica cada titular por sección (por la carpeta de su URL) y los agrupa por tema entre medios. | Lista de grupos con `medios`, `seccion` |
 | `verificar_enlaces.py` | Comprueba que un enlace abre y se lee sin pagar. | `{ok, motivo, url}` |
-| `armar_resumen.py` | Orquesta todo, elige enlaces, aplica el historial y redacta el borrador HTML. | JSON completo o solo el borrador |
+| `armar_resumen.py` | Orquesta todo, elige enlaces, aplica el historial y redacta el borrador (HTML) y la versión en texto plano. Incluye la sección Venezuela. | JSON completo, borrador o texto |
 
 ## `armar_resumen.py`
 ```
-armar_resumen.py [--formato json|borrador] [--horas 30] [--refresh] [--sin-verificar] [--guardar]
+armar_resumen.py [--formato json|borrador|texto] [--horas 30] [--refresh] [--sin-verificar] [--guardar]
 ```
-- `ok_para_enviar` es falso si responden menos de 4 fuentes, hay menos de 30 notas recientes o no hay titular. Con `--formato borrador` en ese caso no imprime el borrador, escribe `NO ENVIAR: ...` en stderr y sale con código 2.
+- `ok_para_enviar` es falso si responden menos de 4 fuentes, hay menos de 30 notas recientes o no hay titular (las fuentes de Venezuela no cuentan: son opcionales y su estado va en `estado_venezuela`). Con `--formato borrador` o `texto` en ese caso no imprime nada, escribe `NO ENVIAR: ...` en stderr y sale con código 2.
 - Cada ítem trae `titulo`, `medios` (cuántos), `nombres`, `seccion`, `descripcion` (si algún feed la da), `otros_titulos`, `repetida_hace_dias`, `enlace` y `enlace_medio` (nulos si ningún medio tiene enlace libre).
-- **Orden y selección:** titular = tema nacional con más medios (puede ser de economía); secundarias = 3 nacionales, más hasta 2 si las cubren 5 o más medios; luego economía (3), internacional (2), deportes (2) y otros (2: cultura y similares con 3 o más medios). Los temas repetidos de días anteriores pierden 2 puntos.
+- **Orden y selección:** titular = tema nacional con más medios (puede ser de economía); secundarias = 3 nacionales, más hasta 2 si las cubren 5 o más medios; luego economía (3), internacional (2), Venezuela (3; más medios primero y, a igual número, la más reciente), deportes (2) y otros (2: cultura y similares con 3 o más medios). Los temas repetidos de días anteriores pierden 2 puntos.
 - **Historial:** `memory/noticias/AAAA-MM-DD.json` (ignorado por git). Cada ejecución borra los archivos con más de 7 días.
 - `--sin-verificar` salta la comprobación de enlaces; solo para pruebas.
 

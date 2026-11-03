@@ -1,6 +1,6 @@
 ---
 name: resumen-noticias-chile
-description: "Arma y envía por Telegram el resumen diario de noticias de Chile, tipo diario: titular principal (el tema que más medios cubren), noticias secundarias, economía y finanzas, internacional, deportes y 'otros' si algo lo merece. Lee feeds oficiales de varios medios chilenos, cuenta cuántos medios cubren cada noticia y enlaza solo notas que se pueden leer sin muro de pago. Úsalo cuando la automatización diaria de las 08:30 (hora de Santiago) lo dispare, o cuando el usuario pida 'las noticias de hoy', 'el resumen del día' o 'qué pasó hoy en Chile'. No lo uses para buscar una noticia puntual ni para noticias fuera de Chile."
+description: "Arma y envía por Telegram el resumen diario de noticias de Chile, tipo diario: titular principal (el tema que más medios cubren), noticias secundarias, economía y finanzas, internacional, Venezuela, deportes y 'otros' si algo lo merece. Lee feeds oficiales de varios medios chilenos, cuenta cuántos medios cubren cada noticia y enlaza solo notas que se pueden leer sin muro de pago. Úsalo cuando la automatización diaria de las 08:30 (hora de Santiago) lo dispare, o cuando el usuario pida 'las noticias de hoy', 'el resumen del día' o 'qué pasó hoy en Chile'. No lo uses para buscar una noticia puntual ni para noticias fuera de Chile."
 ---
 # Resumen diario de noticias de Chile
 
@@ -24,7 +24,9 @@ Tranquilo y directo, como en `IDENTITY.md` y `SOUL.md`. El resumen se lee en un 
 
 Hacen todo el trabajo pesado y entregan un resultado compacto. Detalles en [references/scripts.md](references/scripts.md).
 
-- Resumen completo, borrador listo para Telegram:
+- Resumen completo en **texto plano**, con la URL entera en su propia línea. Es el formato para la automatización diaria, porque su entrega descarta el HTML y deja las noticias sin enlace:
+  `python3 -I skills/resumen-noticias-chile/scripts/armar_resumen.py --formato texto`
+- Mismo resumen en HTML de Telegram (solo si envías tú el mensaje con `parse_mode` HTML):
   `python3 -I skills/resumen-noticias-chile/scripts/armar_resumen.py --formato borrador`
 - Mismo resumen en JSON (secciones, recuentos, descripciones, estado de fuentes):
   `python3 -I skills/resumen-noticias-chile/scripts/armar_resumen.py`
@@ -34,17 +36,17 @@ Fuentes, prioridad de medios y estado de acceso: [references/fuentes.md](referen
 
 ## Flujo
 
-1. **Ejecuta** `armar_resumen.py` (el JSON si quieres afinar texto; `--formato borrador` si basta con el borrador).
+1. **Ejecuta** `armar_resumen.py` (el JSON si quieres afinar texto; `--formato texto` si basta con el borrador).
 2. **Comprueba `ok_para_enviar`.** Si es falso (pocas fuentes, pocas notas, sin titular), **no envíes un resumen a medias**: avisa en una línea qué falló, por ejemplo "hoy no pude armar el resumen: solo respondieron 3 fuentes".
-3. **Pule el borrador:** mantén la estructura, los recuentos de medios y los enlaces tal cual. Puedes mejorar la redacción del titular principal con 2 o 3 líneas propias (usa `descripcion` y `otros_titulos`) y acortar títulos largos. No inventes datos que no estén en el resultado.
-4. **Envía por Telegram** en formato HTML ([references/formato.md](references/formato.md)): un solo mensaje, menos de 4000 caracteres.
+3. **Pule el borrador:** mantén la estructura, los recuentos de medios y los enlaces tal cual. **Copia cada URL completa y sin cambios, en su propia línea; no la conviertas a Markdown ni a HTML, no la acortes y no la quites.** Puedes mejorar la redacción del titular principal con 2 o 3 líneas propias (usa `descripcion` y `otros_titulos`) y acortar títulos largos. No inventes datos que no estén en el resultado.
+4. **Envía por Telegram** ([references/formato.md](references/formato.md)): un solo mensaje, menos de 4000 caracteres. Si tu respuesta final la entrega la automatización (`--announce`), manda el **texto plano**: Telegram vuelve enlaces las URLs. Solo usa HTML si envías tú el mensaje con `parse_mode` HTML.
 5. **Guarda en el historial** con `--guardar` solo si el envío salió bien.
 
 ## Reglas de contenido
 
 - **Importancia = cuántos medios distintos cubren el tema.** No cambies el orden por criterio propio.
 - **Un solo enlace por noticia**, el del medio de mayor prioridad cuya nota se lee completa sin suscripción. Si el resultado no trae enlace, deja "sin enlace libre"; no busques otro por tu cuenta ni enlaces medios de pago.
-- **Secciones diarias:** titular principal (con secundarias), economía y finanzas, internacional y deportes. "Otros" solo si el script lo trae. Cultura no es sección fija.
+- **Secciones diarias:** titular principal (con secundarias), economía y finanzas, internacional y deportes. "Venezuela" y "Otros" solo si el script los trae. Venezuela viene de portales globales (Infobae, Noticias ONU), aparte del ranking de Chile; con pocas fuentes el recuento suele ser de 1 o 2 medios. Cultura no es sección fija.
 - **↻** marca los temas que ya salieron en días anteriores y siguen vivos; ya vienen ordenados con ese descuento.
 - Si dos noticias de una sección tratan del mismo hecho (los temas grandes a veces quedan divididos), puedes unirlas en una línea con sus recuentos.
 
@@ -57,7 +59,7 @@ Fuentes, prioridad de medios y estado de acceso: [references/fuentes.md](referen
 
 ## Límites
 
-- No leas ni cites medios que prohíben el uso por agentes de IA (por ejemplo Emol); no están en la lista de fuentes y no deben añadirse.
+- No leas ni cites medios que prohíben el uso por agentes de IA (por ejemplo Emol, BBC Mundo, DW, France 24, El País, RFI, AP); no están en las listas de fuentes y no deben añadirse.
 - No uses el texto completo de las notas, aunque algún feed lo incluya.
 - Las horas de silencio de `AGENTS.md` (23:00–08:00) siguen vigentes: no envíes antes de las 08:00 salvo petición expresa.
 - Programación de la automatización: [references/programacion.md](references/programacion.md).

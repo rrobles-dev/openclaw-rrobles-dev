@@ -1,14 +1,19 @@
 # Formato del mensaje
 
-Un solo mensaje de Telegram, en HTML, de menos de 4000 caracteres (el límite de Telegram es 4096). `armar_resumen.py` ya lo recorta si hace falta: acota los títulos largos y quita primero las noticias que menos medios cubren; nunca baja de 3 secundarias ni deja vacía una sección.
+Un solo mensaje de Telegram, de menos de 4000 caracteres (el límite de Telegram es 4096). `armar_resumen.py` ya lo recorta si hace falta: acota los títulos largos y quita primero las noticias que menos medios cubren; nunca baja de 3 secundarias ni deja vacía una sección.
+
+## Dos formatos
+- **`--formato texto` (el de la automatización):** texto plano. Cada noticia lleva su URL entera en una línea aparte (`  CNN Chile: https://...`) y Telegram la vuelve enlace sola. Se usa porque la entrega por `--announce` descarta el HTML: llegaban los títulos sin enlaces. Sin Markdown ni HTML.
+- **`--formato borrador`:** HTML de Telegram (`<b>`, `<a href>`). Solo si el agente envía el mensaje él mismo con `parse_mode` HTML.
 
 ## Estructura (todos los días)
 1. **TITULAR PRINCIPAL:** el tema nacional con más medios. Título en negrita, recuento, un enlace y 1 a 3 líneas.
 2. **Otras noticias importantes:** al menos 3 temas nacionales, y hasta 5 si los que sobran los cubren 5 o más medios; una línea y un enlace cada uno.
 3. 💰 **Economía y finanzas**
 4. 🌎 **Internacional**
-5. ⚽ **Deportes**
-6. 🔎 **Otros:** solo si hay temas que no son política, economía, internacional ni deportes (cultura, espectáculos, tendencias) cubiertos por 3 o más medios (máx. 2 ítems).
+5. 🇻🇪 **Venezuela:** solo si hay notas de las últimas 30 h en las fuentes globales (hasta 3, una línea y un enlace cada una; no cuenta para decidir si se envía).
+6. ⚽ **Deportes**
+7. 🔎 **Otros:** solo si hay temas que no son política, economía, internacional ni deportes (cultura, espectáculos, tendencias) cubiertos por 3 o más medios (máx. 2 ítems).
 
 Cada noticia: `• Título — 📰 N medios · <a href="...">Medio</a>`. Sin enlace libre: `· sin enlace libre`. `↻` = sigue desde días anteriores.
 

@@ -190,6 +190,63 @@ gcen = {"seccion": "nacional", "articulos": [dict(art("cnn", "Tema distinto sin 
 FC = {"cnn": {"nombre": "CNN", "prioridad": 1, "acceso": "libre"}, "mega": {"nombre": "Mega", "prioridad": 2, "acceso": "libre"}}
 assert ar.elegir_enlace(gcen, FC, lambda u, ac: {"ok": True})[0] == "https://cnn/central"
 
+# ---- notas sin relación no se unen por conectores ni se enlazan por error (Imacec vs. venta de viviendas) ----
+imacec = ag.tokens("Imacec de septiembre sube 0,2%, pero caída estimada para octubre afianza perspectivas de un PIB 2026 negativo")
+viviendas = ag.tokens("Venta de viviendas en la Región Metropolitana cae 10% anual en el tercer trimestre de 2026, pero sube respecto al anterior")
+assert not ag.similares(imacec, viviendas), imacec & viviendas
+assert "pero" not in imacec and "sube" not in imacec
+gmal = {"seccion": "economia", "articulos": [dict(art("lt", "Imacec de septiembre sube 0,2%, pero caída estimada para octubre afianza perspectivas de un PIB 2026 negativo"), link="https://lt/imacec"),
+        dict(art("cnn", "Venta de viviendas en la Región Metropolitana cae 10% anual en el tercer trimestre de 2026, pero sube respecto al anterior"), link="https://cnn/viviendas"),
+        dict(art("mega", "Economía chilena creció 0,2% en septiembre: Imacec comercio industria compensaron caída de la minería PIB"), link="https://mega/imacec")]}
+FM = {"lt": {"nombre": "LT", "prioridad": 1, "acceso": "medido"}, "cnn": {"nombre": "CNN", "prioridad": 2, "acceso": "libre"},
+      "mega": {"nombre": "Mega", "prioridad": 3, "acceso": "libre"}}
+# aunque el grupo quede mal armado, el enlace no apunta a una nota que no habla del titular
+assert ar.elegir_enlace(gmal, FM, lambda u, ac: {"ok": ac != "medido"}) == ("https://mega/imacec", "Mega")
+assert ar.elegir_enlace(dict(gmal, articulos=gmal["articulos"][:2]), FM, lambda u, ac: {"ok": ac != "medido"}) == (None, None)
+
+# ---- formato texto: la URL va entera y visible (la entrega en texto plano descarta el HTML) ----
+t = res["texto"]
+assert "<a " not in t and "<b>" not in t and len(t) <= ar.MAX_CHARS
+urls = re.findall(r"https://\S+", t)
+assert len(urls) == len(re.findall(r"📰 \d+ medio", t)) == t.count("📰 ") - 1   # una URL por noticia (el último 📰 es la leyenda)
+assert all(u.startswith("https://cnn.cl") or u.startswith("https://df.cl") or u.startswith("https://mega.cl") or u.startswith("https://mostrador.cl")
+           or u.startswith("https://pauta.cl") or u.startswith("https://cooperativa.cl") or u.startswith("https://dinamo.cl") for u in urls)
+assert "sin enlace libre" in res2["texto"] and "https://" not in res2["texto"]
+tl = ar.ajustar(cargado, hoy, ar.texto)
+assert len(tl) <= ar.MAX_CHARS and tl.count("s" * 140) >= ar.SECUNDARIAS_MIN
+
+# ---- Venezuela: filtro de fuentes generalistas y sección aparte ----
+FV = {"id": "infobae-ve", "nombre": "Infobae", "tipo": "rss", "url": "https://i.com/rss", "filtro": "venezuel|caracas"}
+ahora = dt.datetime(2026, 10, 20, 15, tzinfo=dt.timezone.utc)
+def rss_ve(*notas):
+    return "<rss><channel>" + "".join(f"<item><title>{t}</title><link>{l}</link><pubDate>Tue, 20 Oct 2026 12:00:00 +0000</pubDate>"
+                                       f"<description>{d}</description></item>" for t, l, d in notas) + "</channel></rss>"
+lt.fetch = lambda url, refresh=False, ttl=lt.TTL: rss_ve(("Maduro anuncia cambios", "https://i.com/a", "En Caracas"),
+                                                        ("Lluvias en Colombia", "https://i.com/b", "Sin relación"),
+                                                        ("Bolsa sube", "https://i.com/venezuela/c", ""))
+out = lt.leer_fuente(FV, ahora=ahora)
+assert [a["link"] for a in out] == ["https://i.com/a", "https://i.com/venezuela/c"], out   # el filtro mira título, descripción y URL
+fve = {f["id"]: f for f in lt.cargar_fuentes("fuentes_venezuela.json")}
+assert {"infobae-ve", "onu-ve"} <= set(fve) and fve["infobae-ve"]["filtro"] and fve["onu-ve"]["filtro"]
+assert all(f["acceso"] == "libre" for f in fve.values())      # solo medios sin muro de pago ni bloqueo a IA
+ve = []
+for t, medios in [("Venezuela liberación presos políticos Caracas amnistía", ["infobae-ve", "onu-ve"]),
+                  ("Venezuela petróleo exportaciones Chevron licencia", ["infobae-ve"]),
+                  ("Venezuela migrantes frontera Colombia retorno", ["infobae-ve"]),
+                  ("Venezuela béisbol Caribe campeonato semifinal", ["infobae-ve"]),
+                  ("Venezuela inflación bolívar salario mínimo", ["infobae-ve"])]:
+    for i, m in enumerate(medios):
+        ve.append({"medio": m, "nombre": fve[m]["nombre"], "titulo": t + (" " * i), "link": f"https://{m}.com/{t[10:15]}",
+                   "fecha": "2026-10-20T12:00:00+00:00", "seccion_fuente": "", "descripcion": ""})
+rv = ar.armar(articulos=base, estado=estado, hoy=hoy, verif=lambda u, ac: {"ok": True}, carpeta=Path(tempfile.mkdtemp()),
+              articulos_ve=ve, estado_ve={"infobae-ve": {"ok": True, "n": 5}})
+assert [i["medios"] for i in rv["venezuela"]][:2] == [2, 1] and len(rv["venezuela"]) == ar.LIMITES["venezuela"]
+assert rv["venezuela"][0]["enlace_medio"] == "Infobae"                 # prioridad 1 entre las fuentes de Venezuela
+assert "🇻🇪 <b>Venezuela</b>" in rv["borrador"] and "🇻🇪 Venezuela" in rv["texto"]
+assert rv["borrador"].index("Internacional") < rv["borrador"].index("Venezuela") < rv["borrador"].index("Deportes")
+assert rv["titular"]["medios"] == 5 and rv["ok_para_enviar"]            # Venezuela no altera el ranking ni la decisión de enviar
+assert not res["venezuela"] and "Venezuela" not in res["borrador"]      # sin notas de Venezuela, no hay sección vacía
+
 # guardado de historial
 c = Path(tempfile.mkdtemp()); ar.guardar_historial(res, hoy, c)
 assert json.loads((c / "2026-10-20.json").read_text())[0]["medios"] == 5

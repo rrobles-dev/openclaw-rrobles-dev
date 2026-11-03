@@ -20,8 +20,8 @@ CACHE = AQUI.parent / ".cache"
 TTL = 20 * 60
 
 
-def cargar_fuentes():
-    return json.loads((AQUI / "fuentes.json").read_text(encoding="utf-8"))
+def cargar_fuentes(archivo="fuentes.json"):
+    return json.loads((AQUI / archivo).read_text(encoding="utf-8"))
 
 
 def fetch(url, refresh=False, ttl=TTL):
@@ -105,6 +105,9 @@ def leer_fuente(f, horas=30, refresh=False, ahora=None):
         if not a["titulo"] or not a["link"].startswith("http"):
             continue
         a["titulo"] = limpiar_sufijo(a["titulo"], f["nombre"])
+        # fuentes generalistas: solo las notas cuyo título, descripción o URL calzan con el filtro
+        if f.get("filtro") and not re.search(f["filtro"], f'{a["titulo"]} {a["descripcion"]} {a["link"]}', re.I):
+            continue
         d = parse_fecha(a["fecha"], a["link"])
         if d and d < lim:
             continue
@@ -114,8 +117,8 @@ def leer_fuente(f, horas=30, refresh=False, ahora=None):
     return out
 
 
-def leer_todas(ids=None, horas=30, refresh=False):
-    fuentes = [f for f in cargar_fuentes() if not ids or f["id"] in ids]
+def leer_todas(ids=None, horas=30, refresh=False, archivo="fuentes.json"):
+    fuentes = [f for f in cargar_fuentes(archivo) if not ids or f["id"] in ids]
     articulos, estado = [], {}
 
     def uno(f):
@@ -140,9 +143,10 @@ def main():
     ap.add_argument("--fuentes", help="ids separados por coma (por defecto, todas)")
     ap.add_argument("--horas", type=int, default=30)
     ap.add_argument("--refresh", action="store_true")
+    ap.add_argument("--archivo", default="fuentes.json", help="lista de fuentes (p. ej. fuentes_venezuela.json)")
     a = ap.parse_args()
     ids = set(a.fuentes.split(",")) if a.fuentes else None
-    arts, est = leer_todas(ids, a.horas, a.refresh)
+    arts, est = leer_todas(ids, a.horas, a.refresh, a.archivo)
     json.dump({"articulos": arts, "estado": est}, sys.stdout, ensure_ascii=False)
     print()
 

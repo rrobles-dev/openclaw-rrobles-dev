@@ -18,7 +18,7 @@ openclaw automations add \
   --session isolated \
   --timeout-seconds 300 \
   --announce --channel telegram --to <CHAT_ID> \
-  --message "Usa el skill resumen-noticias-chile: ejecuta armar_resumen.py, revisa ok_para_enviar y pule el borrador. Tu respuesta final debe ser solo el mensaje del resumen, listo para Telegram. Si no se puede armar un resumen completo, responde en una línea qué falló y no mandes uno a medias. Antes de terminar, ejecuta el script con --guardar."
+  --message "Usa el skill resumen-noticias-chile: ejecuta armar_resumen.py con --formato texto, revisa ok_para_enviar y pule el borrador sin tocar ni quitar ninguna URL. Tu respuesta final debe ser solo el mensaje del resumen en texto plano, listo para Telegram, con cada URL entera en su propia línea. Si no se puede armar un resumen completo, responde en una línea qué falló y no mandes uno a medias. Antes de terminar, ejecuta el script con --guardar."
 ```
 
 - `--cron "30 8 * * *" --tz America/Santiago` fija las 08:30 hora de Santiago (el VPS corre en UTC; la zona evita el desfase por el cambio de horario). `--exact` quita el desplazamiento aleatorio que el programador añade por defecto.
@@ -27,7 +27,7 @@ openclaw automations add \
 - `--announce --channel telegram --to <CHAT_ID>` entrega la respuesta final al chat. No uses `--best-effort-deliver`: si falla la entrega, queremos verlo.
 - Sin `--to`, `--channel last` enviaría al último chat usado; es más frágil.
 
-**Pendiente de comprobar en la primera ejecución:** si la entrega por `--announce` respeta el formato HTML (negritas y enlaces) o llega como texto plano. Si llega como texto plano, hay que cambiar a que el agente envíe el mensaje él mismo con su herramienta de Telegram y que la automatización termine con una respuesta corta.
+**Entrega y enlaces (observado):** con el mensaje original (borrador HTML) las noticias llegaban a Telegram sin enlaces: la entrega por `--announce` no respeta el HTML. Por eso la automatización usa `--formato texto`, con la URL visible en su propia línea, que Telegram convierte en enlace. Para actualizar una automatización ya creada, revisa su mensaje con `openclaw automations show <id>` y cámbialo con `openclaw automations edit <id> --message "..."` (comprueba las opciones con `--help`). Si prefieres negritas y enlaces con nombre, el agente puede enviar el mensaje él mismo con `parse_mode` HTML y la automatización terminar con una respuesta corta.
 
 ## Después
 - Comprueba la primera semana: que llegue a la hora, que los enlaces abran y que `memory/noticias/` nunca conserve más de 7 días.

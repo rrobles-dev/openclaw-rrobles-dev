@@ -15,7 +15,20 @@ La lista está en `scripts/fuentes.json` (id, nombre, tipo, URL, prioridad, acce
 
 **Cómo se elige el enlace:** se recorre la lista en ese orden (en economía, DF primero) y se toma el primer medio que cubre la noticia y cuyo enlace pasa `verificar_enlaces.py`. Los medios de pago cuentan para el recuento, pero no se enlazan.
 
+## Venezuela (portales globales)
+Lista aparte en `scripts/fuentes_venezuela.json`, con el mismo formato más un campo opcional `filtro` (expresión regular que debe calzar con título, descripción o URL; sirve para medios generalistas). Verificado el 3 de noviembre de 2026. Estas notas se agrupan entre ellas y **no entran en el ranking de Chile**.
+
+| Prioridad | Medio | Tipo | Acceso | Notas |
+|---|---|---|---|---|
+| 1 | Infobae | RSS | libre | Feed dedicado `category/venezuela` (~5 notas al día), con filtro por si se cuela otro tema. |
+| 2 | Noticias ONU | RSS | libre | Feed de las Américas con filtro `venezuel`; publica pocas notas a la semana. |
+
+Con dos fuentes el recuento suele ser de 1 o 2 medios. Para ampliar la sección hay que sumar medios que no bloqueen agentes de IA (ver abajo).
+
 ## Excluidos y por qué
+- **Bloquean a ClaudeBot u otros agentes de IA en su `robots.txt` (no usar, aunque tengan buena cobertura de Venezuela):** BBC Mundo, DW, France 24, El País, RFI, AP, CNN en Español, Telemundo, El Mundo, La Vanguardia. Euronews bloquea GPTBot y CCBot, y se descartó por el mismo criterio.
+- **Voz de América:** sus feeds en español dejaron de actualizarse en marzo de 2025.
+- **Europa Press, ABC:** accesibles, pero sin notas de Venezuela en la prueba.
 - **Emol:** su `robots.txt` bloquea expresamente a los agentes de IA (ClaudeBot, anthropic-ai, GPTBot, etc.). No se usa.
 - **BioBioChile:** su news sitemap está desactualizado (solo notas de 2025).
 - **T13 y 24horas:** sin feed ni sitemap de noticias útil.
